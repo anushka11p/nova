@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', sans-serif;
+  --font-display: 'Outfit', sans-serif;
+  
+  /* Primary Clinical Teal Color */
+  --color-clinical-50: #f2faf9;
+  --color-clinical-100: #e2f4f2;
+  --color-clinical-200: #c9e9e5;
+  --color-clinical-300: #a2d7d0;
+  --color-clinical-400: #73bebc;
+  --color-clinical-500: #008080; /* Medical Teal Primary */
+  --color-clinical-600: #006666; /* Clinical deep teal matching reference UI */
+  --color-clinical-700: #005252;
+  --color-clinical-800: #034242;
+  --color-clinical-900: #053737;
+
+  /* Custom Transitions & Radii */
+  --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-scan: scan 2s linear infinite;
+  --animate-shimmer: shimmer 2.5s infinite;
+}
+
+@keyframes scan {
+  0% { transform: translateY(0%); }
+  50% { transform: translateY(100%); }
+  100% { transform: translateY(0%); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Custom UI Components and styles */
+html {
+  font-family: var(--font-sans);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+}
+
+/* Print layout for clinical reports */
+@media print {
+  body {
+    background-color: white !important;
+    color: black !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  .print-card {
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+}
