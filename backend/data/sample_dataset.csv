@@ -1,0 +1,51 @@
+patientId,name,ageDays,gender,notes,status,riskScore
+NEO-DS-101,Baby Sophia,3,Female,Healthy skin tone, alert. Normal pre-discharge screening.,Normal,12.4
+NEO-DS-102,Baby Liam,5,Male,Bilirubin level slightly elevated. Mild yellowing visible on face and upper chest.,Moderate Risk,54.8
+NEO-DS-103,Baby Mia,4,Female,Significant yellowing of sclera and skin. Sclera yellow, high bilirubin index.,High Risk,91.2
+NEO-DS-104,Baby Noah,2,Male,Clean skin, pink tone, normal feeding. Routine evaluation.,Normal,8.5
+NEO-DS-105,Baby Olivia,6,Female,Mild jaundice symptoms. Body color has a yellowish tint, sclera clear.,Moderate Risk,48.2
+NEO-DS-106,Baby Jackson,3,Male,Deep yellow skin discoloration. Sclera yellow, high serum bilirubin.,High Risk,94.5
+NEO-DS-107,Baby Emma,4,Female,Healthy skin appearance. Clear skin, active infant.,Normal,10.2
+NEO-DS-108,Baby Lucas,5,Male,Yellow face, sclera shows yellowish tint. Bilirubin level moderate.,Moderate Risk,62.1
+NEO-DS-109,Baby Isabella,3,Female,Visible jaundice. Sclera yellow, high bilirubin readings.,High Risk,88.7
+NEO-DS-110,Baby Oliver,2,Male,Normal skin color, pink tone. Healthy discharge check.,Normal,7.9
+NEO-DS-111,Baby Harper,7,Female,Jaundice detected. Sclera yellow, yellowish face and trunk.,High Risk,89.5
+NEO-DS-112,Baby Ethan,4,Male,Normal pink skin, no yellowing, alert.,Normal,9.1
+NEO-DS-113,Baby Evelyn,5,Female,Yellow skin tint, borderline bilirubin readings.,Moderate Risk,51.3
+NEO-DS-114,Baby James,3,Male,Slight yellow tone in eyes. Mild bilirubin elevation.,Moderate Risk,44.5
+NEO-DS-115,Baby Charlotte,6,Female,High risk jaundice. Sclera yellow, dark yellow skin tone.,High Risk,92.8
+NEO-DS-116,Baby Benjamin,2,Male,No yellowing. Clear skin, feeding normally.,Normal,6.4
+NEO-DS-117,Baby Amelia,5,Female,Bilirubin index normal. Healthy pink skin.,Normal,11.5
+NEO-DS-118,Baby William,4,Male,Face yellow, sclera yellowish, elevated bilirubin.,High Risk,85.2
+NEO-DS-119,Baby Abigail,3,Female,Mild yellow tint. Skin yellowish, normal sclera.,Moderate Risk,42.1
+NEO-DS-120,Baby Alexander,6,Male,Severe jaundice. Dark yellow skin, high bilirubin.,High Risk,95.4
+NEO-DS-121,Baby Emily,4,Female,Healthy skin appearance, clear skin.,Normal,8.9
+NEO-DS-122,Baby Michael,3,Male,Bilirubin levels elevated. Mild yellowing on body.,Moderate Risk,58.3
+NEO-DS-123,Baby Elizabeth,2,Female,Sclera yellow, yellowish face. Bilirubin index high.,High Risk,87.6
+NEO-DS-124,Baby Daniel,5,Male,Normal skin tone, healthy newborn screening.,Normal,11.2
+NEO-DS-125,Baby Sofia,4,Female,Yellow eyes and skin. High risk jaundice diagnosis.,High Risk,90.4
+NEO-DS-126,Baby Henry,3,Male,Normal discharge screening. Clear skin, active.,Normal,7.2
+NEO-DS-127,Baby Avery,6,Female,Mild yellow color. Skin slightly yellow.,Moderate Risk,40.6
+NEO-DS-128,Baby Matthew,2,Male,Jaundice detected. Yellow sclera, elevated bilirubin.,High Risk,86.1
+NEO-DS-129,Baby Camila,5,Female,Healthy skin tone, no yellowing.,Normal,10.5
+NEO-DS-130,Baby Wyatt,4,Male,Slight yellow tint in eyes, borderline bilirubin.,Moderate Risk,45.8
+NEO-DS-131,Baby Aria,3,Female,Severe yellow skin tint, high risk jaundice.,High Risk,93.2
+NEO-DS-132,Baby Carter,6,Male,Normal newborn pink skin. Clear checkup.,Normal,9.8
+NEO-DS-133,Baby Scarlett,4,Female,Yellow skin and face, moderate risk.,Moderate Risk,52.4
+NEO-DS-134,Baby Jayden,2,Male,High bilirubin, yellow face, sclera yellow.,High Risk,89.9
+NEO-DS-135,Baby Victoria,5,Female,Healthy appearance, no visible jaundice.,Normal,11.0
+NEO-DS-136,Baby John,3,Male,Bilirubin elevated. Sclera yellowish, skin yellow.,High Risk,87.2
+NEO-DS-137,Baby Madison,4,Female,Mild skin yellowing, sclera clear.,Moderate Risk,47.1
+NEO-DS-138,Baby Luke,6,Male,Healthy skin, pink tone, normal bilirubin.,Normal,8.2
+NEO-DS-139,Baby Penelope,2,Female,Very yellow skin tone, high risk jaundice.,High Risk,91.8
+NEO-DS-140,Baby Dylan,5,Male,Yellowish tint, borderline bilirubin reading.,Moderate Risk,50.1
+NEO-DS-141,Baby Grace,3,Female,Healthy pink skin, alert.,Normal,9.3
+NEO-DS-142,Baby Leo,4,Male,Yellow sclera, high bilirubin levels.,High Risk,88.4
+NEO-DS-143,Baby Lily,6,Female,Mild yellow face, normal sclera.,Moderate Risk,41.9
+NEO-DS-144,Baby Levi,2,Male,No yellowing. Clear skin, normal discharge.,Normal,7.5
+NEO-DS-145,Baby Chloe,5,Female,Severe jaundice, yellow skin, high bilirubin.,High Risk,94.2
+NEO-DS-146,Baby Isaac,3,Male,Healthy pink skin, active infant.,Normal,10.0
+NEO-DS-147,Baby Aurora,4,Female,Bilirubin elevated, yellow skin tint.,Moderate Risk,56.7
+NEO-DS-148,Baby Gabriel,6,Male,Yellow sclera, dark yellow skin tone.,High Risk,90.9
+NEO-DS-149,Baby Hazel,2,Female,Normal skin tone, pre-discharge check normal.,Normal,6.8
+NEO-DS-150,Baby Julian,5,Male,Yellow face, sclera yellowish, moderate bilirubin.,Moderate Risk,59.2

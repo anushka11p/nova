@@ -24,13 +24,15 @@ import {
   Baby, 
   MapPin, 
   Sparkles,
-  Info
+  Info,
+  Brain
 } from 'lucide-react';
 
 import { initialPatientRecords, clinicalRecommendations, defaultMockStats } from '../data/mockData';
 import { WeeklyScreeningsChart, PredictionDistributionChart, RiskLevelBreakdownChart } from '../components/SVGCharts';
 import { GradCamVisualizer } from '../components/GradCamVisualizer';
 import { Modal } from '../components/ui/Modal';
+import { AITrainingConsole } from '../components/AITrainingConsole';
 
 // Sample clinical test baby photos (represented by custom styling overlays)
 const sampleBabies = [
@@ -74,10 +76,55 @@ const sampleBabies = [
 
 export const DashboardPage = ({ currentUser, onLogout, initialTab = "dashboard", showToast }) => {
   const [activeTab, setActiveTab] = useState(initialTab);
-  const [records, setRecords] = useState(initialPatientRecords);
-  const [selectedRecord, setSelectedRecord] = useState(initialPatientRecords[0]); // Default for Results/Reports
+  const [records, setRecords] = useState([]);
+  const [selectedRecord, setSelectedRecord] = useState(initialPatientRecords[0]); // Default fallback
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+
+  const [modelState, setModelState] = useState({
+    status: "Untrained",
+    version: "Neonatal-Net v0.0.0",
+    accuracy: 0.0,
+    datasetSize: 0,
+    history: []
+  });
+
+  const fetchRecords = async () => {
+    try {
+      const response = await fetch('/api/records');
+      if (response.ok) {
+        const data = await response.json();
+        setRecords(data);
+        if (data.length > 0) {
+          setSelectedRecord(prev => {
+            if (!prev || !data.some(r => r.patientId === prev.patientId)) {
+              return data[0];
+            }
+            return prev;
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching records:", err);
+    }
+  };
+
+  const fetchModelStatus = async () => {
+    try {
+      const response = await fetch('/api/model/status');
+      if (response.ok) {
+        const data = await response.json();
+        setModelState(data);
+      }
+    } catch (err) {
+      console.error("Error fetching model status:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchRecords();
+    fetchModelStatus();
+  }, []);
   
   // Settings State
   const [theme, setTheme] = useState('light');
@@ -206,83 +253,61 @@ export const DashboardPage = ({ currentUser, onLogout, initialTab = "dashboard",
     ];
 
     steps.forEach((step) => {
-      setTimeout(() => {
+      setTimeout(async () => {
         setPipelineState(step.state);
         setPipelineProgress(step.progress);
         
         if (step.state === 'complete') {
-          // Finalize outcomes
-          let newRecordResult;
-          
-          if (uploadedImage.mockResult) {
-            // Preset clinical sample used
-            const sample = uploadedImage.mockResult;
-            newRecordResult = {
-              patientId: formData.patientId,
-              name: formData.babyName,
-              ageDays: parseInt(formData.ageDays),
-              gender: formData.gender,
-              hospital: formData.hospitalName,
-              doctor: formData.doctorName,
-              notes: formData.notes,
-              date: new Date().toISOString().split('T')[0],
-              prediction: sample.prediction,
-              status: sample.risk,
-              confidence: sample.confidence,
-              processingTime: "1.2s",
-              modelUsed: "Neonatal-Net v2",
-              riskScore: sample.confidence,
-              heatmapCoords: { x: 50, y: 45, radius: 55 }
-            };
-          } else {
-            // General custom upload (randomized for simulation)
-            const isHigh = Math.random() > 0.6;
-            const isMid = !isHigh && Math.random() > 0.5;
-            const status = isHigh ? "High Risk" : (isMid ? "Moderate Risk" : "Normal");
-            const prediction = isHigh ? "Jaundice Detected" : (isMid ? "Mild Bilirubin Elevation" : "Normal / Low Risk");
-            const confidence = parseFloat((80 + Math.random() * 18).toFixed(1));
-            
-            newRecordResult = {
-              patientId: formData.patientId,
-              name: formData.babyName,
-              ageDays: parseInt(formData.ageDays),
-              gender: formData.gender,
-              hospital: formData.hospitalName,
-              doctor: formData.doctorName,
-              notes: formData.notes,
-              date: new Date().toISOString().split('T')[0],
-              prediction,
-              status,
-              confidence,
-              processingTime: "1.3s",
-              modelUsed: "Neonatal-Net v2",
-              riskScore: confidence,
-              heatmapCoords: { x: 50, y: 50, radius: 45 }
-            };
-          }
-
-          setRecords(prev => [newRecordResult, ...prev]);
-          setSelectedRecord(newRecordResult);
-          showToast(`Screening Analysis Complete. Status: ${newRecordResult.status}`, "success");
-          
-          // Move to Results tab
-          setTimeout(() => {
-            setActiveTab('results');
-            // reset new screening page form
-            setFormData({
-              patientId: "",
-              babyName: "",
-              ageDays: "",
-              gender: "Male",
-              hospitalName: currentUser?.hospital || "St. Mary's Pediatric Wing",
-              doctorName: currentUser?.name || "Dr. Elena Smith",
-              notes: ""
+          try {
+            const response = await fetch('/api/records', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                patientId: formData.patientId,
+                name: formData.babyName,
+                ageDays: parseInt(formData.ageDays),
+                gender: formData.gender,
+                hospital: formData.hospitalName,
+                doctor: formData.doctorName,
+                notes: formData.notes
+              })
             });
-            setUploadedImage(null);
-            setUploadProgress(0);
+
+            if (response.ok) {
+              const newRecordResult = await response.json();
+              setRecords(prev => [newRecordResult, ...prev]);
+              setSelectedRecord(newRecordResult);
+              showToast(`Screening Analysis Complete. Status: ${newRecordResult.status}`, "success");
+              
+              // Move to Results tab
+              setTimeout(() => {
+                setActiveTab('results');
+                // reset new screening page form
+                setFormData({
+                  patientId: "",
+                  babyName: "",
+                  ageDays: "",
+                  gender: "Male",
+                  hospitalName: currentUser?.hospital || "St. Mary's Pediatric Wing",
+                  doctorName: currentUser?.name || "Dr. Elena Smith",
+                  notes: ""
+                });
+                setUploadedImage(null);
+                setUploadProgress(0);
+                setPipelineState('idle');
+                setPipelineProgress(0);
+              }, 800);
+            } else {
+              showToast("Failed to process screening on server.", "error");
+              setPipelineState('idle');
+              setPipelineProgress(0);
+            }
+          } catch (err) {
+            console.error("Error starting screening:", err);
+            showToast("Server connection error during screening.", "error");
             setPipelineState('idle');
             setPipelineProgress(0);
-          }, 800);
+          }
         }
       }, step.delay);
     });
@@ -387,6 +412,13 @@ export const DashboardPage = ({ currentUser, onLogout, initialTab = "dashboard",
               Analytics
             </button>
             <button 
+              onClick={() => setActiveTab('ai-training')} 
+              className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold rounded-xl transition-all ${activeTab === 'ai-training' ? 'bg-teal-950 text-teal-400 border-l-4 border-teal-500' : 'hover:bg-slate-800/60 hover:text-white'}`}
+            >
+              <Brain className="w-4 h-4" />
+              AI Model Training
+            </button>
+            <button 
               onClick={() => setActiveTab('settings')} 
               className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold rounded-xl transition-all ${activeTab === 'settings' ? 'bg-teal-950 text-teal-400 border-l-4 border-teal-500' : 'hover:bg-slate-800/60 hover:text-white'}`}
             >
@@ -442,6 +474,7 @@ export const DashboardPage = ({ currentUser, onLogout, initialTab = "dashboard",
               {activeTab === 'results' && 'AI Clinical Analysis Findings'}
               {activeTab === 'reports' && 'Clinical Summary Report'}
               {activeTab === 'analytics' && 'Screening & Prediction Analytics'}
+              {activeTab === 'ai-training' && 'AI Model Training Console'}
               {activeTab === 'settings' && 'Platform Configuration'}
               {activeTab === 'help' && 'Clinical Knowledge Center'}
             </h2>
@@ -504,10 +537,10 @@ export const DashboardPage = ({ currentUser, onLogout, initialTab = "dashboard",
                 <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-2 relative overflow-hidden group">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-teal-50 rounded-bl-full -z-0 opacity-40 group-hover:scale-110 transition-transform" />
                   <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider">Total Screenings</span>
-                  <span className="block text-3xl font-extrabold text-slate-800 font-display">{defaultMockStats.totalScreenings}</span>
+                  <span className="block text-3xl font-extrabold text-slate-800 font-display">{427 + records.length}</span>
                   <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600">
                     <CheckCircle className="w-3.5 h-3.5" />
-                    <span>+18% compared to last month</span>
+                    <span>+{Math.round((records.length / 427) * 100)}% database increase</span>
                   </div>
                 </div>
 
@@ -515,10 +548,12 @@ export const DashboardPage = ({ currentUser, onLogout, initialTab = "dashboard",
                 <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-2 relative overflow-hidden group">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-rose-50 rounded-bl-full -z-0 opacity-40" />
                   <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider">High-Risk Cases</span>
-                  <span className="block text-3xl font-extrabold text-rose-600 font-display">{defaultMockStats.highRiskCases}</span>
+                  <span className="block text-3xl font-extrabold text-rose-600 font-display">
+                    {35 + records.filter(r => r.status === 'High Risk').length}
+                  </span>
                   <div className="flex items-center gap-1 text-[11px] font-semibold text-rose-600">
                     <AlertTriangle className="w-3.5 h-3.5" />
-                    <span>8.7% referral rate</span>
+                    <span>{(((35 + records.filter(r => r.status === 'High Risk').length) / (427 + records.length)) * 100).toFixed(1)}% referral rate</span>
                   </div>
                 </div>
 
@@ -526,7 +561,9 @@ export const DashboardPage = ({ currentUser, onLogout, initialTab = "dashboard",
                 <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-2 relative overflow-hidden group">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-full -z-0 opacity-40" />
                   <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider">Today's Screenings</span>
-                  <span className="block text-3xl font-extrabold text-slate-800 font-display">{defaultMockStats.todayScreenings}</span>
+                  <span className="block text-3xl font-extrabold text-slate-800 font-display">
+                    {records.filter(r => r.date === new Date().toISOString().split('T')[0]).length}
+                  </span>
                   <span className="block text-[11px] font-medium text-slate-400">Next discharge queue: 3 babies</span>
                 </div>
 
@@ -534,8 +571,10 @@ export const DashboardPage = ({ currentUser, onLogout, initialTab = "dashboard",
                 <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-2 relative overflow-hidden group">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-full -z-0 opacity-40" />
                   <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider">AI Model Status</span>
-                  <span className="block text-3xl font-extrabold text-emerald-600 font-display">{defaultMockStats.modelStatus}</span>
-                  <span className="block text-[10px] text-slate-400 font-bold font-mono truncate">{defaultMockStats.modelVersion}</span>
+                  <span className="block text-3xl font-extrabold text-emerald-600 font-display">{modelState.status}</span>
+                  <span className="block text-[10px] text-slate-400 font-bold font-mono truncate">
+                    {modelState.version} {modelState.accuracy ? `(${modelState.accuracy}% Sens)` : ''}
+                  </span>
                 </div>
               </div>
 
@@ -1333,6 +1372,13 @@ export const DashboardPage = ({ currentUser, onLogout, initialTab = "dashboard",
                 </div>
 
               </div>
+            </div>
+          )}
+
+          {/* AI MODEL TRAINING TAB */}
+          {activeTab === 'ai-training' && (
+            <div className="animate-fade-in">
+              <AITrainingConsole modelState={modelState} onModelTrained={fetchModelStatus} showToast={showToast} />
             </div>
           )}
 
