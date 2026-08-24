@@ -101,7 +101,7 @@ export const AITrainingConsole = ({ modelState, onModelTrained, showToast }) => 
         fetchDatasetDetails();
         // Clear old logs
         setTrainingLogs([
-          `neoBloom-ai-terminal$ import dataset --file=${file.name}`,
+          `nova-ai-terminal$ import dataset --file=${file.name}`,
           `[INFO] Parsing ${filename.endsWith('.csv') ? 'CSV tabular data' : 'JSON records'}...`,
           `[SUCCESS] Dataset initialized. Row count: ${data.size} records ready.`
         ]);
@@ -137,7 +137,7 @@ export const AITrainingConsole = ({ modelState, onModelTrained, showToast }) => 
     setLiveLoss([]);
     setLiveAcc([]);
     setTrainingLogs([
-      "neoBloom-ai-terminal$ node train.js --dataset=active_db --epochs=10",
+      "nova-ai-terminal$ node train.js --dataset=active_db --epochs=10",
       "[INFO] Loading system environment & CUDA bindings...",
       "[INFO] Executing Neonatal-Net Jaundice Text Tokenizer..."
     ]);
@@ -445,7 +445,7 @@ export const AITrainingConsole = ({ modelState, onModelTrained, showToast }) => 
             <div className="bg-slate-950 rounded-xl p-4 font-mono text-[11px] leading-relaxed text-slate-300 h-64 overflow-y-auto border border-slate-900 shadow-inner flex flex-col">
               <div className="flex-1 space-y-1.5">
                 {trainingLogs.length === 0 ? (
-                  <div className="text-slate-500 italic">neoBloom-ai-terminal$ system ready. Awaiting training execution...</div>
+                  <div className="text-slate-500 italic">nova-ai-terminal$ system ready. Awaiting training execution...</div>
                 ) : (
                   trainingLogs.map((log, i) => (
                     <div 
@@ -454,7 +454,7 @@ export const AITrainingConsole = ({ modelState, onModelTrained, showToast }) => 
                         log.includes('[SUCCESS]') ? 'text-emerald-400' :
                         log.includes('[INFO]') ? 'text-blue-400' :
                         log.includes('[FATAL') ? 'text-rose-400 font-bold' :
-                        log.startsWith('neoBloom') ? 'text-teal-400 font-semibold' : 'text-slate-300'
+                        log.startsWith('nova') ? 'text-teal-400 font-semibold' : 'text-slate-300'
                       }
                     >
                       {log}

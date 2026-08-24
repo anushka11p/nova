@@ -34,6 +34,44 @@ import { GradCamVisualizer } from '../components/GradCamVisualizer';
 import { Modal } from '../components/ui/Modal';
 import { AITrainingConsole } from '../components/AITrainingConsole';
 
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("ErrorBoundary caught rendering error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-6 space-y-4 m-6">
+          <h3 className="text-lg font-bold text-rose-800 font-display">React Rendering Error Caught</h3>
+          <p className="text-xs text-rose-600 font-mono leading-relaxed bg-white p-4 rounded-xl border border-rose-100 overflow-x-auto">
+            {this.state.error?.toString() || "Unknown Error"}
+          </p>
+          <pre className="text-[9px] text-slate-500 font-mono overflow-x-auto bg-slate-50 p-4 rounded-xl max-h-60">
+            {this.state.error?.stack}
+          </pre>
+          <button 
+            onClick={() => this.setState({ hasError: false, error: null })}
+            className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-sm"
+          >
+            Retry Render
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // Sample clinical test baby photos (represented by custom styling overlays)
 const sampleBabies = [
   {
@@ -219,7 +257,8 @@ export const DashboardPage = ({ currentUser, onLogout, initialTab = "dashboard",
           clearInterval(interval);
           setUploadedImage({
             name: file.name,
-            size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+            size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+            file: file // Retain the raw File object!
           });
           showToast("Image uploaded successfully!", "success");
           return 100;
@@ -228,7 +267,7 @@ export const DashboardPage = ({ currentUser, onLogout, initialTab = "dashboard",
       });
     }, 150);
   };
-
+ 
   // Trigger AI analysis pipeline
   const handleStartAnalysis = (e) => {
     e.preventDefault();
@@ -240,10 +279,10 @@ export const DashboardPage = ({ currentUser, onLogout, initialTab = "dashboard",
       showToast("Please fill in Baby Name and Age (in days) to process.", "error");
       return;
     }
-
+ 
     setPipelineState('uploaded');
     setPipelineProgress(10);
-
+ 
     // Timeline simulation steps
     const steps = [
       { state: 'quality', progress: 30, delay: 1000 },
@@ -251,7 +290,7 @@ export const DashboardPage = ({ currentUser, onLogout, initialTab = "dashboard",
       { state: 'analysis', progress: 80, delay: 3500 },
       { state: 'complete', progress: 100, delay: 5000 }
     ];
-
+ 
     steps.forEach((step) => {
       setTimeout(async () => {
         setPipelineState(step.state);
@@ -259,18 +298,21 @@ export const DashboardPage = ({ currentUser, onLogout, initialTab = "dashboard",
         
         if (step.state === 'complete') {
           try {
+            const formDataObj = new FormData();
+            if (uploadedImage.file) {
+              formDataObj.append('image', uploadedImage.file);
+            }
+            formDataObj.append('patientId', formData.patientId);
+            formDataObj.append('name', formData.babyName);
+            formDataObj.append('ageDays', formData.ageDays);
+            formDataObj.append('gender', formData.gender);
+            formDataObj.append('hospital', formData.hospitalName);
+            formDataObj.append('doctor', formData.doctorName);
+            formDataObj.append('notes', formData.notes);
+ 
             const response = await fetch('/api/records', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                patientId: formData.patientId,
-                name: formData.babyName,
-                ageDays: parseInt(formData.ageDays),
-                gender: formData.gender,
-                hospital: formData.hospitalName,
-                doctor: formData.doctorName,
-                notes: formData.notes
-              })
+              body: formDataObj
             });
 
             if (response.ok) {
@@ -321,7 +363,7 @@ export const DashboardPage = ({ currentUser, onLogout, initialTab = "dashboard",
   const handleDownloadPDF = () => {
     showToast("Generating clinical PDF report download...", "info");
     setTimeout(() => {
-      showToast("NeoBloom_Report_" + selectedRecord.patientId + ".pdf downloaded successfully!", "success");
+      showToast("Nova_Report_" + selectedRecord.patientId + ".pdf downloaded successfully!", "success");
     }, 1500);
   };
 
@@ -369,7 +411,7 @@ export const DashboardPage = ({ currentUser, onLogout, initialTab = "dashboard",
               N
             </div>
             <div>
-              <span className="text-base font-bold text-white font-display tracking-tight">NeoBloom</span>
+              <span className="text-base font-bold text-white font-display tracking-tight">Nova</span>
               <span className="block text-[9px] text-teal-400 font-bold uppercase tracking-wider">Clinical Portal</span>
             </div>
           </div>
@@ -463,7 +505,7 @@ export const DashboardPage = ({ currentUser, onLogout, initialTab = "dashboard",
         <header className="no-print bg-white border-b border-slate-100 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between shrink-0 gap-3">
           <div>
             <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-400">
-              <span>NeoBloom Portal</span>
+              <span>Nova Portal</span>
               <ChevronRight className="w-3 h-3 text-slate-300" />
               <span className="text-clinical-600 font-bold capitalize">{activeTab.replace('-', ' ')}</span>
             </div>
@@ -483,22 +525,10 @@ export const DashboardPage = ({ currentUser, onLogout, initialTab = "dashboard",
           <div className="flex items-center gap-6">
             <nav className="hidden lg:flex items-center gap-6 text-sm font-semibold text-slate-500">
               <button 
-                onClick={onLogout} 
-                className="hover:text-clinical-600 transition-colors cursor-pointer"
+                onClick={() => setActiveTab('dashboard')} 
+                className={`transition-colors cursor-pointer pb-0.5 ${activeTab === 'dashboard' ? 'text-clinical-600 border-b-2 border-clinical-600 font-bold' : 'hover:text-clinical-600'}`}
               >
                 Home
-              </button>
-              <button 
-                onClick={onLogout} 
-                className="hover:text-clinical-600 transition-colors cursor-pointer"
-              >
-                About
-              </button>
-              <button 
-                onClick={onLogout} 
-                className="hover:text-clinical-600 transition-colors cursor-pointer"
-              >
-                Features
               </button>
               <button 
                 onClick={() => setActiveTab('new-screening')} 
@@ -790,7 +820,7 @@ export const DashboardPage = ({ currentUser, onLogout, initialTab = "dashboard",
                 
                 {/* Drag and Drop Upload */}
                 <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-xs">
-                  <h3 className="text-base font-bold text-slate-800 font-display mb-4">Image Upload</h3>
+                  <h3 className="text-base font-bold text-slate-800 font-display">Image Upload</h3>
 
                   <div 
                     onDragOver={handleDragOver}
@@ -883,8 +913,7 @@ export const DashboardPage = ({ currentUser, onLogout, initialTab = "dashboard",
                       {/* Step 2 */}
                       <div className="flex items-center gap-3">
                         <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
-                          pipelineState === 'quality' ? 'bg-teal-600 text-white animate-pulse' :
-                          (pipelineState !== 'uploaded' && pipelineState !== 'idle' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400')
+                          pipelineState !== 'idle' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'
                         }`}>
                           {pipelineState === 'uploaded' ? '○' : (pipelineState === 'quality' ? '⌛' : '✓')}
                         </span>
@@ -894,8 +923,7 @@ export const DashboardPage = ({ currentUser, onLogout, initialTab = "dashboard",
                       {/* Step 3 */}
                       <div className="flex items-center gap-3">
                         <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
-                          pipelineState === 'preprocessing' ? 'bg-teal-600 text-white animate-pulse' :
-                          (pipelineState !== 'uploaded' && pipelineState !== 'quality' && pipelineState !== 'idle' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400')
+                          pipelineState !== 'uploaded' && pipelineState !== 'quality' && pipelineState !== 'idle' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'
                         }`}>
                           {pipelineState === 'preprocessing' ? '⌛' : (pipelineState !== 'uploaded' && pipelineState !== 'quality' && pipelineState !== 'idle' ? '✓' : '○')}
                         </span>
@@ -905,8 +933,7 @@ export const DashboardPage = ({ currentUser, onLogout, initialTab = "dashboard",
                       {/* Step 4 */}
                       <div className="flex items-center gap-3">
                         <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
-                          pipelineState === 'analysis' ? 'bg-teal-600 text-white animate-pulse' :
-                          (pipelineState === 'complete' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400')
+                          pipelineState === 'complete' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'
                         }`}>
                           {pipelineState === 'analysis' ? '⌛' : (pipelineState === 'complete' ? '✓' : '○')}
                         </span>
@@ -932,7 +959,8 @@ export const DashboardPage = ({ currentUser, onLogout, initialTab = "dashboard",
 
           {/* C. RESULTS TAB */}
           {activeTab === 'results' && selectedRecord && (
-            <div className="space-y-6 animate-fade-in">
+            <ErrorBoundary>
+              <div className="space-y-6 animate-fade-in">
               
               {/* Alert Warning for High Risk */}
               {selectedRecord.status === "High Risk" && (
@@ -978,7 +1006,7 @@ export const DashboardPage = ({ currentUser, onLogout, initialTab = "dashboard",
                     <div className="pt-2">
                       <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Recommended Protocols:</span>
                       <ul className="text-xs text-slate-600 space-y-1.5 list-disc pl-4 font-semibold">
-                        {clinicalRecommendations[selectedRecord.status]?.actions.map((act, i) => (
+                        {clinicalRecommendations[selectedRecord.status]?.actions?.map((act, i) => (
                           <li key={i}>{act}</li>
                         ))}
                       </ul>
@@ -1068,11 +1096,13 @@ export const DashboardPage = ({ currentUser, onLogout, initialTab = "dashboard",
                 </div>
               </div>
             </div>
+            </ErrorBoundary>
           )}
 
           {/* D. REPORTS TAB */}
           {activeTab === 'reports' && selectedRecord && (
-            <div className="bg-white rounded-3xl border border-slate-100 shadow-xl overflow-hidden p-8 space-y-8 animate-fade-in print-card relative">
+            <ErrorBoundary>
+              <div className="bg-white rounded-3xl border border-slate-100 shadow-xl overflow-hidden p-8 space-y-8 animate-fade-in print-card relative">
               
               {/* Report Options Floating header (Hidden during print) */}
               <div className="no-print absolute top-6 right-8 flex items-center gap-2">
@@ -1103,7 +1133,7 @@ export const DashboardPage = ({ currentUser, onLogout, initialTab = "dashboard",
               <div className="flex justify-between items-start border-b-2 border-slate-100 pb-6 pt-4">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-xl font-bold text-slate-800 font-display">NeoBloom Jaundice Screening Report</span>
+                    <span className="text-xl font-bold text-slate-800 font-display">Nova Jaundice Screening Report</span>
                   </div>
                   <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Clinical Analytics Portal • Hospital Copy</p>
                 </div>
@@ -1187,7 +1217,7 @@ export const DashboardPage = ({ currentUser, onLogout, initialTab = "dashboard",
                     <div className="pt-2">
                       <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Assigned Protocols:</span>
                       <ul className="list-disc pl-4 space-y-1 font-semibold text-slate-650">
-                        {clinicalRecommendations[selectedRecord.status]?.actions.map((act, i) => (
+                        {clinicalRecommendations[selectedRecord.status]?.actions?.map((act, i) => (
                           <li key={i}>{act}</li>
                         ))}
                       </ul>
@@ -1215,6 +1245,7 @@ export const DashboardPage = ({ currentUser, onLogout, initialTab = "dashboard",
               </div>
 
             </div>
+            </ErrorBoundary>
           )}
 
           {/* E. PATIENT RECORDS TAB */}
@@ -1480,20 +1511,20 @@ export const DashboardPage = ({ currentUser, onLogout, initialTab = "dashboard",
           {/* H. HELP TAB */}
           {activeTab === 'help' && (
             <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-6 space-y-6 max-w-3xl mx-auto animate-fade-in">
-              <h3 className="text-base font-bold text-slate-850 border-b border-slate-100 pb-3 font-display">NeoBloom FAQ & Knowledge Center</h3>
+              <h3 className="text-base font-bold text-slate-850 border-b border-slate-100 pb-3 font-display">Nova FAQ & Knowledge Center</h3>
               
               <div className="space-y-4 text-sm text-slate-600">
                 <div className="space-y-1.5">
-                  <h4 className="font-bold text-slate-800 font-display">1. How does NeoBloom scan for Jaundice?</h4>
+                  <h4 className="font-bold text-slate-800 font-display">1. How does Nova scan for Jaundice?</h4>
                   <p className="text-xs leading-relaxed">
-                    NeoBloom captures or analyzes a raw skin image of the infant's face (the forehead/nose/cheek region). Our deep convolutional network analyzes dermal pixels, separating red-green-blue channels and correlating skin pigmentation values with standard Bilirubin concentration curves.
+                    Nova captures or analyzes a raw skin image of the infant's face (the forehead/nose/cheek region). Our deep convolutional network analyzes dermal pixels, separating red-green-blue channels and correlating skin pigmentation values with standard Bilirubin concentration curves.
                   </p>
                 </div>
 
                 <div className="space-y-1.5">
-                  <h4 className="font-bold text-slate-800 font-display">2. Does NeoBloom replace Transcutaneous Bilirubin (TcB) or Serum tests?</h4>
+                  <h4 className="font-bold text-slate-800 font-display">2. Does Nova replace Transcutaneous Bilirubin (TcB) or Serum tests?</h4>
                   <p className="text-xs leading-relaxed">
-                    No. NeoBloom is a rapid, non-invasive pre-screening tool designed to minimize unnecessary blood drawing heel-sticks. High Risk or Moderate Risk outcomes flagged by NeoBloom must always be confirmed using standard hospital lab-validated Total Serum Bilirubin (TSB) tests.
+                    No. Nova is a rapid, non-invasive pre-screening tool designed to minimize unnecessary blood drawing heel-sticks. High Risk or Moderate Risk outcomes flagged by Nova must always be confirmed using standard hospital lab-validated Total Serum Bilirubin (TSB) tests.
                   </p>
                 </div>
 

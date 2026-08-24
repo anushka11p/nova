@@ -14,7 +14,7 @@ export const LandingPage = ({ onNavigate, onStartScreening }) => {
               N
             </div>
             <div>
-              <span className="text-lg font-bold text-slate-800 font-display tracking-tight">NeoBloom</span>
+              <span className="text-lg font-bold text-slate-800 font-display tracking-tight">Nova</span>
               <span className="block text-[10px] text-slate-400 font-semibold tracking-wider uppercase leading-none">Clinical Portal</span>
             </div>
           </div>
@@ -159,7 +159,7 @@ export const LandingPage = ({ onNavigate, onStartScreening }) => {
               Advanced Clinical Functionality
             </h2>
             <p className="text-slate-500 max-w-xl mx-auto text-sm md:text-base">
-              NeoBloom uses deep learning to process facial dermal pixels, mapping them to bilirubin concentration curves.
+              Nova uses deep learning to process facial dermal pixels, mapping them to bilirubin concentration curves.
             </p>
           </div>
 
@@ -210,7 +210,7 @@ export const LandingPage = ({ onNavigate, onStartScreening }) => {
             Neonatal jaundice affects up to 60% of term and 80% of preterm infants. Delays in identifying hyperbilirubinemia can lead to severe neurological conditions such as kernicterus. 
           </p>
           <p className="text-slate-600 leading-relaxed">
-            NeoBloom provides clinical staff with a frictionless, high-accuracy digital screening tool. By taking or uploading a standard digital photograph of the newborn's face, NeoBloom's AI processes dermal reflectance and returns risk level guidelines in under two seconds.
+            Nova provides clinical staff with a frictionless, high-accuracy digital screening tool. By taking or uploading a standard digital photograph of the newborn's face, Nova's AI processes dermal reflectance and returns risk level guidelines in under two seconds.
           </p>
           <div className="flex items-center gap-6 pt-4">
             <div className="flex items-center gap-2">
@@ -258,7 +258,7 @@ export const LandingPage = ({ onNavigate, onStartScreening }) => {
               <div className="w-6 h-6 rounded-md bg-clinical-500 flex items-center justify-center font-bold text-sm">
                 N
               </div>
-              <span className="font-bold text-base font-display">NeoBloom</span>
+              <span className="font-bold text-base font-display">Nova</span>
             </div>
             <p className="text-xs">
               AI-powered non-invasive neonatal jaundice screening software. Empowering clinical diagnostics.
@@ -296,7 +296,7 @@ export const LandingPage = ({ onNavigate, onStartScreening }) => {
         </div>
 
         <div className="max-w-7xl mx-auto pt-6 border-t border-slate-800 flex flex-col md:flex-row items-center justify-between text-xs gap-4 text-slate-500">
-          <span>&copy; {new Date().getFullYear()} NeoBloom Jaundice AI. All rights reserved.</span>
+          <span>&copy; {new Date().getFullYear()} Nova Jaundice AI. All rights reserved.</span>
           <div className="flex gap-4">
             <a href="#home" className="hover:underline">Privacy Policy</a>
             <a href="#home" className="hover:underline">Terms of Service</a>
@@ -310,7 +310,7 @@ export const LandingPage = ({ onNavigate, onStartScreening }) => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs">
           <div className="bg-slate-900 rounded-3xl overflow-hidden max-w-xl w-full border border-slate-800 p-6 space-y-4">
             <div className="flex justify-between items-center text-white">
-              <h3 className="font-bold text-lg">NeoBloom Walkthrough Demo</h3>
+              <h3 className="font-bold text-lg">Nova Walkthrough Demo</h3>
               <button onClick={() => setShowDemo(false)} className="text-slate-400 hover:text-white text-sm">Close</button>
             </div>
             
