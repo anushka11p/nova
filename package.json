@@ -7,7 +7,7 @@
     "dev": "concurrently \"vite\" \"node backend/index.js\" \"npm run ai\"",
     "server": "node backend/index.js",
     "backend": "node backend/index.js",
-    "ai": "backend/venv/bin/python backend/app.py",
+    "ai": "ml/.venv/bin/python backend/app.py",
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview"

@@ -1,1625 +1,283 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  LayoutDashboard, 
-  PlusCircle, 
-  FileSpreadsheet, 
-  FileText, 
-  BarChart3, 
-  Settings, 
-  HelpCircle, 
-  LogOut, 
-  Search, 
-  Filter, 
-  Activity, 
-  AlertTriangle, 
-  CheckCircle, 
-  ChevronRight, 
-  Upload, 
-  ArrowRight, 
-  Clock, 
-  FileDown, 
-  Printer, 
-  Save, 
-  User, 
-  Baby, 
-  MapPin, 
-  Sparkles,
-  Info,
-  Brain
-} from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { BarChart3, ChevronDown, Gauge, HelpCircle, LayoutDashboard, LogOut, Menu, Plus, ScanLine, Search, Settings as SettingsIcon, Users, X } from 'lucide-react';
 
-import { initialPatientRecords, clinicalRecommendations, defaultMockStats } from '../data/mockData';
-import { WeeklyScreeningsChart, PredictionDistributionChart, RiskLevelBreakdownChart } from '../components/SVGCharts';
-import { GradCamVisualizer } from '../components/GradCamVisualizer';
-import { Modal } from '../components/ui/Modal';
-import { AITrainingConsole } from '../components/AITrainingConsole';
+import { Overview } from '../portal/screens/Overview';
+import { NewScreening } from '../portal/screens/NewScreening';
+import { Result } from '../portal/screens/Result';
+import { Records } from '../portal/screens/Records';
+import { Report } from '../portal/screens/Report';
+import { Analytics } from '../portal/screens/Analytics';
+import { Model } from '../portal/screens/Model';
+import { Settings } from '../portal/screens/Settings';
+import { Help } from '../portal/screens/Help';
+import { Avatar, Button, NovaMark } from '../portal/ui';
 
-class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
+const NAV_GROUPS = [
+  {
+    label: 'Screening',
+    items: [
+      { route: 'overview', label: 'Overview', icon: LayoutDashboard },
+      { route: 'new', label: 'New screening', icon: ScanLine },
+      { route: 'records', label: 'Patient records', icon: Users },
+    ],
+  },
+  {
+    label: 'Insights',
+    items: [
+      { route: 'analytics', label: 'Analytics', icon: BarChart3 },
+      { route: 'model', label: 'Screening model', icon: Gauge },
+    ],
+  },
+  {
+    label: 'Support',
+    items: [
+      { route: 'settings', label: 'Settings', icon: SettingsIcon },
+      { route: 'help', label: 'Help', icon: HelpCircle },
+    ],
+  },
+];
+const TITLES = { overview: 'Overview', new: 'New screening', records: 'Patient records', record: 'Screening result', report: 'Report', analytics: 'Analytics', model: 'Screening model', settings: 'Settings', help: 'Help' };
 
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
+const LEGACY_TABS = { dashboard: 'overview', 'new-screening': 'new', 'patient-records': 'records' };
+const DEFAULTS_KEY = 'nova.screeningDefaults';
 
-  componentDidCatch(error, errorInfo) {
-    console.error("ErrorBoundary caught rendering error:", error, errorInfo);
-  }
+function readHash() {
+  const [route = 'overview', id] = window.location.hash.replace(/^#\/?/, '').split('/');
+  return { route: route || 'overview', id: id ? decodeURIComponent(id) : null };
+}
 
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-6 space-y-4 m-6">
-          <h3 className="text-lg font-bold text-rose-800 font-display">React Rendering Error Caught</h3>
-          <p className="text-xs text-rose-600 font-mono leading-relaxed bg-white p-4 rounded-xl border border-rose-100 overflow-x-auto">
-            {this.state.error?.toString() || "Unknown Error"}
-          </p>
-          <pre className="text-[9px] text-slate-500 font-mono overflow-x-auto bg-slate-50 p-4 rounded-xl max-h-60">
-            {this.state.error?.stack}
-          </pre>
-          <button 
-            onClick={() => this.setState({ hasError: false, error: null })}
-            className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-sm"
-          >
-            Retry Render
-          </button>
-        </div>
-      );
-    }
-    return this.props.children;
+function loadDefaults(user) {
+  const fallback = { hospital: user?.hospital || '', doctor: user?.name || '' };
+  try {
+    return { ...fallback, ...JSON.parse(localStorage.getItem(DEFAULTS_KEY) || '{}') };
+  } catch {
+    return fallback;
   }
 }
 
-// Sample clinical test baby photos (represented by custom styling overlays)
-const sampleBabies = [
-  {
-    id: "sample-1",
-    name: "Baby Garcia (Sample)",
-    ageDays: 4,
-    gender: "Male",
-    hospital: "St. Mary's Pediatric Wing",
-    doctor: "Dr. Elena Smith",
-    notes: "High risk test sample. Visually yellowish face.",
-    risk: "High Risk",
-    confidence: 94.8,
-    prediction: "Jaundice Detected"
-  },
-  {
-    id: "sample-2",
-    name: "Baby Olivia (Sample)",
-    ageDays: 3,
-    gender: "Female",
-    hospital: "St. Mary's Pediatric Wing",
-    doctor: "Dr. Elena Smith",
-    notes: "Normal discharge sample. Clean skin pink tone.",
-    risk: "Normal",
-    confidence: 91.2,
-    prediction: "Normal / Low Risk"
-  },
-  {
-    id: "sample-3",
-    name: "Baby Liam (Sample)",
-    ageDays: 5,
-    gender: "Male",
-    hospital: "General Children's Hospital",
-    doctor: "Dr. Marcus Vance",
-    notes: "Borderline case. Elevated bilirubin index.",
-    risk: "Moderate Risk",
-    confidence: 84.5,
-    prediction: "Mild Bilirubin Elevation"
-  }
-];
-
-export const DashboardPage = ({ currentUser, onLogout, initialTab = "dashboard", showToast }) => {
-  const [activeTab, setActiveTab] = useState(initialTab);
+export const DashboardPage = ({ currentUser, onLogout, initialTab = 'dashboard', showToast }) => {
+  const [loc, setLoc] = useState(() => (window.location.hash ? readHash() : { route: LEGACY_TABS[initialTab] || 'overview', id: null }));
   const [records, setRecords] = useState([]);
-  const [selectedRecord, setSelectedRecord] = useState(initialPatientRecords[0]); // Default fallback
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
+  const [loadingRecords, setLoadingRecords] = useState(true);
+  const [metrics, setMetrics] = useState(null);
+  const [health, setHealth] = useState('checking');
+  const [defaults, setDefaults] = useState(() => loadDefaults(currentUser));
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [userMenu, setUserMenu] = useState(false);
+  const [search, setSearch] = useState('');
+  const userMenuRef = useRef(null);
 
-  const [modelState, setModelState] = useState({
-    status: "Untrained",
-    version: "Neonatal-Net v0.0.0",
-    accuracy: 0.0,
-    datasetSize: 0,
-    history: []
-  });
-
-  const fetchRecords = async () => {
-    try {
-      const response = await fetch('/api/records');
-      if (response.ok) {
-        const data = await response.json();
-        setRecords(data);
-        if (data.length > 0) {
-          setSelectedRecord(prev => {
-            if (!prev || !data.some(r => r.patientId === prev.patientId)) {
-              return data[0];
-            }
-            return prev;
-          });
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching records:", err);
-    }
-  };
-
-  const fetchModelStatus = async () => {
-    try {
-      const response = await fetch('/api/model/status');
-      if (response.ok) {
-        const data = await response.json();
-        setModelState(data);
-      }
-    } catch (err) {
-      console.error("Error fetching model status:", err);
-    }
-  };
-
-  useEffect(() => {
-    fetchRecords();
-    fetchModelStatus();
+  const go = useCallback((route, id = null) => {
+    const hash = `#/${route}${id ? `/${encodeURIComponent(id)}` : ''}`;
+    if (window.location.hash !== hash) window.location.hash = hash;
+    setLoc({ route, id });
+    setMenuOpen(false);
+    document.getElementById('portal-main')?.scrollTo({ top: 0 });
   }, []);
-  
-  // Settings State
-  const [theme, setTheme] = useState('light');
-  const [notifications, setNotifications] = useState({ email: true, syslogs: true, criticalOnly: false });
-  const [threshold, setThreshold] = useState(85);
-  const [melaninCorrection, setMelaninCorrection] = useState(true);
-
-  // New Screening Form States
-  const [formData, setFormData] = useState({
-    patientId: "",
-    babyName: "",
-    ageDays: "",
-    gender: "Male",
-    hospitalName: currentUser?.hospital || "St. Mary's Pediatric Wing",
-    doctorName: currentUser?.name || "Dr. Elena Smith",
-    notes: ""
-  });
-  const [uploadedImage, setUploadedImage] = useState(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [isDragOver, setIsDragOver] = useState(false);
-
-  // AI Analysis Pipeline simulation
-  const [pipelineState, setPipelineState] = useState('idle'); // idle, uploaded, quality, preprocessing, analysis, complete
-  const [pipelineProgress, setPipelineProgress] = useState(0);
-
-  // Modal State
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const [modalRecord, setModalRecord] = useState(null);
-
-  // Generate unique Patient ID
-  const generatePatientId = () => {
-    const rand = Math.floor(1000 + Math.random() * 9000);
-    return `NEO-${new Date().getFullYear()}-${rand}`;
-  };
 
   useEffect(() => {
-    if (activeTab === 'new-screening' && !formData.patientId) {
-      setFormData(prev => ({ ...prev, patientId: generatePatientId() }));
-    }
-  }, [activeTab]);
+    const onHash = () => setLoc(readHash());
+    window.addEventListener('hashchange', onHash);
+    if (!window.location.hash) window.history.replaceState(null, '', `#/${loc.route}`);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load a clinical test sample
-  const handleSelectSample = (sample) => {
-    setFormData({
-      patientId: generatePatientId(),
-      babyName: sample.name,
-      ageDays: sample.ageDays,
-      gender: sample.gender,
-      hospitalName: sample.hospital,
-      doctorName: sample.doctor,
-      notes: sample.notes
-    });
-    setUploadedImage({
-      name: `${sample.name.toLowerCase().replace(/\s/g, '_')}_scan.png`,
-      size: "2.4 MB",
-      mockResult: sample
-    });
-    showToast("Test sample baby image loaded successfully!", "info");
-  };
+  useEffect(() => {
+    fetch('/api/records').then((r) => (r.ok ? r.json() : [])).then(setRecords).catch(() => setRecords([])).finally(() => setLoadingRecords(false));
+    fetch('/api/model/metrics').then((r) => (r.ok ? r.json() : null)).then(setMetrics).catch(() => setMetrics(null));
+    const check = () => fetch('/api/health').then((r) => r.json()).then((d) => setHealth(d.model)).catch(() => setHealth('offline'));
+    check();
+    const timer = setInterval(check, 30000);
+    return () => clearInterval(timer);
+  }, []);
 
-  // Image Upload handlers
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      simulateFileUpload(file);
-    }
-  };
+  useEffect(() => {
+    if (!userMenu) return;
+    const close = (e) => { if (!userMenuRef.current?.contains(e.target)) setUserMenu(false); };
+    const esc = (e) => e.key === 'Escape' && setUserMenu(false);
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', esc); };
+  }, [userMenu]);
 
-  const handleDragOver = (e) => {
+  const recordKey = (r) => `${r.patientId}~${r.createdAt || r.date}`;
+  const selected = loc.id ? records.find((r) => recordKey(r) === loc.id) : null;
+  const open = (r) => go('record', recordKey(r));
+  const print = (r) => go('report', recordKey(r));
+  const navRoute = loc.route === 'record' || loc.route === 'report' ? 'records' : loc.route;
+
+  function saveDefaults(next) {
+    setDefaults(next);
+    try { localStorage.setItem(DEFAULTS_KEY, JSON.stringify(next)); } catch { /* private mode: keep for this session */ }
+    showToast('Settings saved.', 'success');
+  }
+
+  function submitSearch(e) {
     e.preventDefault();
-    setIsDragOver(true);
-  };
+    go('records');
+  }
 
-  const handleDragLeave = () => {
-    setIsDragOver(false);
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    const file = e.dataTransfer.files[0];
-    if (file) {
-      simulateFileUpload(file);
-    }
-  };
-
-  const simulateFileUpload = (file) => {
-    setUploadProgress(10);
-    const interval = setInterval(() => {
-      setUploadProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setUploadedImage({
-            name: file.name,
-            size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-            file: file // Retain the raw File object!
-          });
-          showToast("Image uploaded successfully!", "success");
-          return 100;
-        }
-        return prev + 30;
-      });
-    }, 150);
-  };
- 
-  // Trigger AI analysis pipeline
-  const handleStartAnalysis = (e) => {
-    e.preventDefault();
-    if (!uploadedImage) {
-      showToast("Please upload a newborn baby face image or choose a clinical test sample.", "error");
-      return;
-    }
-    if (!formData.babyName || !formData.ageDays) {
-      showToast("Please fill in Baby Name and Age (in days) to process.", "error");
-      return;
-    }
- 
-    setPipelineState('uploaded');
-    setPipelineProgress(10);
- 
-    // Timeline simulation steps
-    const steps = [
-      { state: 'quality', progress: 30, delay: 1000 },
-      { state: 'preprocessing', progress: 55, delay: 2000 },
-      { state: 'analysis', progress: 80, delay: 3500 },
-      { state: 'complete', progress: 100, delay: 5000 }
-    ];
- 
-    steps.forEach((step) => {
-      setTimeout(async () => {
-        setPipelineState(step.state);
-        setPipelineProgress(step.progress);
-        
-        if (step.state === 'complete') {
-          try {
-            const formDataObj = new FormData();
-            if (uploadedImage.file) {
-              formDataObj.append('image', uploadedImage.file);
-            }
-            formDataObj.append('patientId', formData.patientId);
-            formDataObj.append('name', formData.babyName);
-            formDataObj.append('ageDays', formData.ageDays);
-            formDataObj.append('gender', formData.gender);
-            formDataObj.append('hospital', formData.hospitalName);
-            formDataObj.append('doctor', formData.doctorName);
-            formDataObj.append('notes', formData.notes);
- 
-            const response = await fetch('/api/records', {
-              method: 'POST',
-              body: formDataObj
-            });
-
-            if (response.ok) {
-              const newRecordResult = await response.json();
-              setRecords(prev => [newRecordResult, ...prev]);
-              setSelectedRecord(newRecordResult);
-              showToast(`Screening Analysis Complete. Status: ${newRecordResult.status}`, "success");
-              
-              // Move to Results tab
-              setTimeout(() => {
-                setActiveTab('results');
-                // reset new screening page form
-                setFormData({
-                  patientId: "",
-                  babyName: "",
-                  ageDays: "",
-                  gender: "Male",
-                  hospitalName: currentUser?.hospital || "St. Mary's Pediatric Wing",
-                  doctorName: currentUser?.name || "Dr. Elena Smith",
-                  notes: ""
-                });
-                setUploadedImage(null);
-                setUploadProgress(0);
-                setPipelineState('idle');
-                setPipelineProgress(0);
-              }, 800);
-            } else {
-              showToast("Failed to process screening on server.", "error");
-              setPipelineState('idle');
-              setPipelineProgress(0);
-            }
-          } catch (err) {
-            console.error("Error starting screening:", err);
-            showToast("Server connection error during screening.", "error");
-            setPipelineState('idle');
-            setPipelineProgress(0);
-          }
-        }
-      }, step.delay);
-    });
-  };
-
-  // Actions for Report Page
-  const handlePrint = () => {
-    window.print();
-  };
-
-  const handleDownloadPDF = () => {
-    showToast("Generating clinical PDF report download...", "info");
-    setTimeout(() => {
-      showToast("Nova_Report_" + selectedRecord.patientId + ".pdf downloaded successfully!", "success");
-    }, 1500);
-  };
-
-  const handleSaveRecord = () => {
-    showToast("Report saved securely to patient database.", "success");
-  };
-
-  // Record Search & Filtering
-  const filteredRecords = records.filter(rec => {
-    const matchesSearch = rec.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          rec.patientId.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'All' || rec.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
-
-  const getRiskColor = (status) => {
-    switch (status) {
-      case "High Risk": return "text-rose-600 bg-rose-50 border-rose-200";
-      case "Moderate Risk": return "text-amber-600 bg-amber-50 border-amber-200";
-      case "Normal":
+  let screen;
+  if ((loc.route === 'record' || loc.route === 'report') && !selected) {
+    screen = loadingRecords ? null : (
+      <div className="rounded-xl border border-slate-200 bg-white px-6 py-14 text-center">
+        <p className="text-[15px] font-semibold text-slate-900">Record not found</p>
+        <p className="mt-1 text-sm text-slate-500">It may have been removed.</p>
+        <Button className="mt-4" variant="secondary" onClick={() => go('records')}>Back to records</Button>
+      </div>
+    );
+  } else {
+    switch (loc.route) {
+      case 'new':
+        screen = <NewScreening defaults={defaults} metrics={metrics} showToast={showToast} onScreened={(r) => setRecords((prev) => [r, ...prev])} onOpenResult={open} onPrint={print} />;
+        break;
+      case 'record':
+        screen = <Result record={selected} metrics={metrics} onBack={() => go('records')} onPrint={print} onNew={() => go('new')} />;
+        break;
+      case 'report':
+        screen = <Report record={selected} metrics={metrics} onBack={() => open(selected)} />;
+        break;
+      case 'records':
+        screen = <Records key={search} records={records} metrics={metrics} loading={loadingRecords} onOpen={open} onNew={() => go('new')} initialQuery={search} />;
+        break;
+      case 'analytics':
+        screen = <Analytics records={records} metrics={metrics} onNew={() => go('new')} />;
+        break;
+      case 'model':
+        screen = <Model metrics={metrics} health={health} />;
+        break;
+      case 'settings':
+        screen = <Settings defaults={defaults} onSaveDefaults={saveDefaults} metrics={metrics} health={health} />;
+        break;
+      case 'help':
+        screen = <Help />;
+        break;
       default:
-        return "text-emerald-600 bg-emerald-50 border-emerald-200";
+        screen = <Overview records={records} metrics={metrics} health={health} userName={currentUser?.name} onNew={() => go('new')} onOpen={open} onRecords={() => go('records')} onModel={() => go('model')} />;
     }
-  };
+  }
 
-  const getRiskBadge = (status) => {
-    switch (status) {
-      case "High Risk": return "bg-rose-500 text-white";
-      case "Moderate Risk": return "bg-amber-500 text-white";
-      case "Normal":
-      default:
-        return "bg-emerald-500 text-white";
-    }
-  };
+  const sidebar = (
+    <div className="flex h-full flex-col">
+      <button
+        type="button"
+        onClick={() => go('overview')}
+        aria-label="Nova home"
+        className="flex items-center gap-2.5 px-5 h-16 shrink-0 w-full text-left cursor-pointer hover:opacity-80 transition-opacity"
+      >
+        <NovaMark />
+        <div>
+          <p className="text-[15px] font-semibold text-slate-900 leading-tight">Nova</p>
+          <p className="text-[11px] text-slate-500 leading-tight">Jaundice screening</p>
+        </div>
+      </button>
+      <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-6" aria-label="Main">
+        {NAV_GROUPS.map((group) => (
+          <div key={group.label}>
+            <p className="px-3 mb-1.5 text-[11px] font-medium text-slate-400">{group.label}</p>
+            <ul className="space-y-0.5">
+              {group.items.map(({ route, label, icon: Icon }) => {
+                const active = navRoute === route;
+                return (
+                  <li key={route}>
+                    <button
+                      type="button"
+                      onClick={() => go(route)}
+                      aria-current={active ? 'page' : undefined}
+                      className={`w-full flex items-center gap-3 h-9 px-3 rounded-lg text-sm transition-colors cursor-pointer ${
+                        active ? 'bg-brand-soft text-brand font-medium' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" aria-hidden="true" />
+                      {label}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </nav>
+      <div className="m-3 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2.5">
+        <p className="flex items-center gap-2 text-[13px] font-medium text-slate-700">
+          <span className={`w-2 h-2 rounded-full ${health === 'online' ? 'bg-emerald-500' : health === 'offline' ? 'bg-red-500' : 'bg-slate-300'}`} aria-hidden="true" />
+          Model {health === 'online' ? 'online' : health === 'offline' ? 'offline' : 'checking'}
+        </p>
+        <p className="mt-0.5 text-[11px] text-slate-500 truncate">{metrics?.model || 'Loading model details'}</p>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
-      
-      {/* 1. Sidebar Component */}
-      <aside className="no-print w-64 bg-slate-900 text-slate-300 flex flex-col justify-between shrink-0 border-r border-slate-800">
-        <div>
-          {/* Sidebar Branding header */}
-          <div className="p-6 border-b border-slate-800 flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center text-white font-bold text-lg font-display">
-              N
-            </div>
-            <div>
-              <span className="text-base font-bold text-white font-display tracking-tight">Nova</span>
-              <span className="block text-[9px] text-teal-400 font-bold uppercase tracking-wider">Clinical Portal</span>
-            </div>
-          </div>
+    <div className="portal font-sans text-slate-900 bg-slate-50 h-screen flex overflow-hidden">
+      <aside className="no-print hidden lg:block w-64 shrink-0 bg-white border-r border-slate-200">{sidebar}</aside>
 
-          {/* Sidebar Menu Items */}
-          <nav className="p-4 space-y-1">
-            <button 
-              onClick={() => setActiveTab('dashboard')} 
-              className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold rounded-xl transition-all ${activeTab === 'dashboard' ? 'bg-teal-950 text-teal-400 border-l-4 border-teal-500' : 'hover:bg-slate-800/60 hover:text-white'}`}
-            >
-              <LayoutDashboard className="w-4 h-4" />
-              Dashboard
+      {menuOpen && (
+        <div className="no-print fixed inset-0 z-40 lg:hidden">
+          <div className="absolute inset-0 bg-slate-900/40" onClick={() => setMenuOpen(false)} />
+          <aside className="absolute inset-y-0 left-0 w-72 bg-white shadow-xl" aria-label="Menu">
+            <button type="button" onClick={() => setMenuOpen(false)} className="absolute top-4 right-3 w-8 h-8 grid place-items-center rounded-lg text-slate-500 hover:bg-slate-100 cursor-pointer" aria-label="Close menu">
+              <X className="w-4 h-4" />
             </button>
-            <button 
-              onClick={() => setActiveTab('new-screening')} 
-              className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold rounded-xl transition-all ${activeTab === 'new-screening' ? 'bg-teal-950 text-teal-400 border-l-4 border-teal-500' : 'hover:bg-slate-800/60 hover:text-white'}`}
-            >
-              <PlusCircle className="w-4 h-4" />
-              New Screening
-            </button>
-            <button 
-              onClick={() => setActiveTab('patient-records')} 
-              className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold rounded-xl transition-all ${activeTab === 'patient-records' ? 'bg-teal-950 text-teal-400 border-l-4 border-teal-500' : 'hover:bg-slate-800/60 hover:text-white'}`}
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              Patient Records
-            </button>
-            <button 
-              onClick={() => setActiveTab('reports')} 
-              className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold rounded-xl transition-all ${activeTab === 'reports' ? 'bg-teal-950 text-teal-400 border-l-4 border-teal-500' : 'hover:bg-slate-800/60 hover:text-white'}`}
-            >
-              <FileText className="w-4 h-4" />
-              Reports
-            </button>
-            <button 
-              onClick={() => setActiveTab('analytics')} 
-              className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold rounded-xl transition-all ${activeTab === 'analytics' ? 'bg-teal-950 text-teal-400 border-l-4 border-teal-500' : 'hover:bg-slate-800/60 hover:text-white'}`}
-            >
-              <BarChart3 className="w-4 h-4" />
-              Analytics
-            </button>
-            <button 
-              onClick={() => setActiveTab('ai-training')} 
-              className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold rounded-xl transition-all ${activeTab === 'ai-training' ? 'bg-teal-950 text-teal-400 border-l-4 border-teal-500' : 'hover:bg-slate-800/60 hover:text-white'}`}
-            >
-              <Brain className="w-4 h-4" />
-              AI Model Training
-            </button>
-            <button 
-              onClick={() => setActiveTab('settings')} 
-              className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold rounded-xl transition-all ${activeTab === 'settings' ? 'bg-teal-950 text-teal-400 border-l-4 border-teal-500' : 'hover:bg-slate-800/60 hover:text-white'}`}
-            >
-              <Settings className="w-4 h-4" />
-              Settings
-            </button>
-            <button 
-              onClick={() => setActiveTab('help')} 
-              className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold rounded-xl transition-all ${activeTab === 'help' ? 'bg-teal-950 text-teal-400 border-l-4 border-teal-500' : 'hover:bg-slate-800/60 hover:text-white'}`}
-            >
-              <HelpCircle className="w-4 h-4" />
-              Help
-            </button>
-          </nav>
+            {sidebar}
+          </aside>
         </div>
+      )}
 
-        {/* Sidebar Doctor Profile Info at the bottom */}
-        <div className="p-4 border-t border-slate-850 flex flex-col gap-3">
-          <div className="flex items-center gap-3 bg-slate-950/40 p-3 rounded-2xl border border-slate-800/80">
-            <div className="w-9 h-9 rounded-full bg-teal-600/20 text-teal-400 flex items-center justify-center font-bold">
-              ES
-            </div>
-            <div className="overflow-hidden">
-              <span className="block text-sm font-bold text-white truncate">{currentUser?.name || "Dr. Elena Smith"}</span>
-              <span className="block text-[10px] text-slate-500 font-medium truncate">{currentUser?.role || "Senior Pediatrician"}</span>
-            </div>
-          </div>
-          <button 
-            onClick={onLogout}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-semibold bg-slate-800 hover:bg-rose-950 hover:text-rose-200 text-slate-300 rounded-xl transition-colors cursor-pointer"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            Logout System
+      <div className="flex-1 min-w-0 flex flex-col">
+        <header className="no-print h-16 shrink-0 bg-white border-b border-slate-200 flex items-center gap-3 px-4 sm:px-6">
+          <button type="button" onClick={() => setMenuOpen(true)} className="lg:hidden w-9 h-9 grid place-items-center rounded-lg text-slate-600 hover:bg-slate-100 cursor-pointer" aria-label="Open menu">
+            <Menu className="w-5 h-5" />
           </button>
-        </div>
-      </aside>
-
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-        
-        {/* Navigation Breadcrumb & Top Bar */}
-        <header className="no-print bg-white border-b border-slate-100 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between shrink-0 gap-3">
-          <div>
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-400">
-              <span>Nova Portal</span>
-              <ChevronRight className="w-3 h-3 text-slate-300" />
-              <span className="text-clinical-600 font-bold capitalize">{activeTab.replace('-', ' ')}</span>
-            </div>
-            <h2 className="text-xl font-bold text-slate-800 mt-1 capitalize font-display">
-              {activeTab === 'dashboard' && 'Clinical Detection Dashboard'}
-              {activeTab === 'new-screening' && 'Initialize AI Screening'}
-              {activeTab === 'patient-records' && 'Infant Screening Registry'}
-              {activeTab === 'results' && 'AI Clinical Analysis Findings'}
-              {activeTab === 'reports' && 'Clinical Summary Report'}
-              {activeTab === 'analytics' && 'Screening & Prediction Analytics'}
-              {activeTab === 'ai-training' && 'AI Model Training Console'}
-              {activeTab === 'settings' && 'Platform Configuration'}
-              {activeTab === 'help' && 'Clinical Knowledge Center'}
-            </h2>
-          </div>
-
-          <div className="flex items-center gap-6">
-            <nav className="hidden lg:flex items-center gap-6 text-sm font-semibold text-slate-500">
-              <button 
-                onClick={() => setActiveTab('dashboard')} 
-                className={`transition-colors cursor-pointer pb-0.5 ${activeTab === 'dashboard' ? 'text-clinical-600 border-b-2 border-clinical-600 font-bold' : 'hover:text-clinical-600'}`}
-              >
-                Home
-              </button>
-              <button 
-                onClick={() => setActiveTab('new-screening')} 
-                className={`transition-colors cursor-pointer pb-0.5 ${activeTab === 'new-screening' || activeTab === 'results' ? 'text-clinical-600 border-b-2 border-clinical-600 font-bold' : 'hover:text-clinical-600'}`}
-              >
-                Detection
-              </button>
-              <button 
-                onClick={() => setActiveTab('reports')} 
-                className={`transition-colors cursor-pointer pb-0.5 ${activeTab === 'reports' ? 'text-clinical-600 border-b-2 border-clinical-600 font-bold' : 'hover:text-clinical-600'}`}
-              >
-                Reports
-              </button>
-            </nav>
-
-            <button 
-              onClick={() => setActiveTab('new-screening')}
-              className="flex items-center gap-2 px-5 py-2.5 bg-clinical-600 text-white rounded-full text-xs font-bold shadow-xs hover:bg-clinical-700 transition-colors cursor-pointer"
-            >
-              <Upload className="w-3.5 h-3.5" />
-              Upload Image
+          <p className="hidden sm:block text-sm text-slate-500 whitespace-nowrap">
+            Nova <span className="mx-1.5 text-slate-300">/</span> <span className="font-medium text-slate-900">{TITLES[loc.route] || 'Overview'}</span>
+          </p>
+          <form onSubmit={submitSearch} className="ml-auto relative w-full max-w-[280px] hidden md:block" role="search">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" aria-hidden="true" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search patients…"
+              aria-label="Search patients"
+              className="w-full h-9 pl-9 pr-3 rounded-lg bg-slate-50 border border-slate-200 text-sm placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-brand focus:ring-4 focus:ring-brand-ring/60"
+            />
+          </form>
+          <Button icon={Plus} className="ml-auto md:ml-0" onClick={() => go('new')}>
+            <span className="hidden sm:inline">New screening</span>
+            <span className="sm:hidden">New</span>
+          </Button>
+          <div className="relative" ref={userMenuRef}>
+            <button type="button" onClick={() => setUserMenu((o) => !o)} aria-expanded={userMenu} aria-haspopup="menu" className="flex items-center gap-2 rounded-lg pl-1 pr-2 h-9 hover:bg-slate-100 cursor-pointer">
+              <Avatar name={currentUser?.name || 'User'} className="bg-brand-soft text-brand" />
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" aria-hidden="true" />
             </button>
+            {userMenu && (
+              <div role="menu" className="absolute right-0 mt-2 w-56 rounded-xl border border-slate-200 bg-white shadow-lg py-1.5 z-30">
+                <div className="px-3.5 py-2 border-b border-slate-100 mb-1">
+                  <p className="text-sm font-medium text-slate-900 truncate">{currentUser?.name || 'Signed in'}</p>
+                  {currentUser?.role && <p className="text-[13px] text-slate-500 truncate">{currentUser.role}</p>}
+                </div>
+                <button role="menuitem" type="button" onClick={() => { setUserMenu(false); go('settings'); }} className="w-full flex items-center gap-2.5 px-3.5 h-9 text-sm text-slate-700 hover:bg-slate-50 cursor-pointer">
+                  <SettingsIcon className="w-4 h-4 text-slate-400" /> Settings
+                </button>
+                <button role="menuitem" type="button" onClick={onLogout} className="w-full flex items-center gap-2.5 px-3.5 h-9 text-sm text-slate-700 hover:bg-slate-50 cursor-pointer">
+                  <LogOut className="w-4 h-4 text-slate-400" /> Sign out
+                </button>
+              </div>
+            )}
           </div>
         </header>
 
-        {/* Dynamic Tab Body */}
-        <div className="p-6 max-w-7xl mx-auto w-full flex-1">
-          
-          {/* A. DASHBOARD TAB */}
-          {activeTab === 'dashboard' && (
-            <div className="space-y-6 animate-fade-in">
-              {/* Main Metric Cards Grid */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                
-                {/* Metric 1 */}
-                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-2 relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-teal-50 rounded-bl-full -z-0 opacity-40 group-hover:scale-110 transition-transform" />
-                  <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider">Total Screenings</span>
-                  <span className="block text-3xl font-extrabold text-slate-800 font-display">{427 + records.length}</span>
-                  <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600">
-                    <CheckCircle className="w-3.5 h-3.5" />
-                    <span>+{Math.round((records.length / 427) * 100)}% database increase</span>
-                  </div>
-                </div>
-
-                {/* Metric 2 */}
-                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-2 relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-rose-50 rounded-bl-full -z-0 opacity-40" />
-                  <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider">High-Risk Cases</span>
-                  <span className="block text-3xl font-extrabold text-rose-600 font-display">
-                    {35 + records.filter(r => r.status === 'High Risk').length}
-                  </span>
-                  <div className="flex items-center gap-1 text-[11px] font-semibold text-rose-600">
-                    <AlertTriangle className="w-3.5 h-3.5" />
-                    <span>{(((35 + records.filter(r => r.status === 'High Risk').length) / (427 + records.length)) * 100).toFixed(1)}% referral rate</span>
-                  </div>
-                </div>
-
-                {/* Metric 3 */}
-                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-2 relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-full -z-0 opacity-40" />
-                  <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider">Today's Screenings</span>
-                  <span className="block text-3xl font-extrabold text-slate-800 font-display">
-                    {records.filter(r => r.date === new Date().toISOString().split('T')[0]).length}
-                  </span>
-                  <span className="block text-[11px] font-medium text-slate-400">Next discharge queue: 3 babies</span>
-                </div>
-
-                {/* Metric 4 */}
-                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-2 relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-full -z-0 opacity-40" />
-                  <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider">AI Model Status</span>
-                  <span className="block text-3xl font-extrabold text-emerald-600 font-display">{modelState.status}</span>
-                  <span className="block text-[10px] text-slate-400 font-bold font-mono truncate">
-                    {modelState.version} {modelState.accuracy ? `(${modelState.accuracy}% Sens)` : ''}
-                  </span>
-                </div>
-              </div>
-
-              {/* Chart Previews */}
-              <div className="grid md:grid-cols-12 gap-6">
-                <div className="md:col-span-8">
-                  <WeeklyScreeningsChart />
-                </div>
-                <div className="md:col-span-4">
-                  <RiskLevelBreakdownChart />
-                </div>
-              </div>
-
-              {/* Recent Patient Screenings List */}
-              <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-6 space-y-4">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="text-base font-bold text-slate-800 font-display">Recent Screenings</h3>
-                    <p className="text-xs text-slate-500">Live feed of evaluations from the pediatric wing</p>
-                  </div>
-                  <button 
-                    onClick={() => setActiveTab('patient-records')} 
-                    className="text-xs font-bold text-clinical-600 hover:text-clinical-700 flex items-center gap-1"
-                  >
-                    View Registry
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                        <th className="py-3 px-4">Patient ID</th>
-                        <th className="py-3 px-4">Baby Name</th>
-                        <th className="py-3 px-4">Date</th>
-                        <th className="py-3 px-4">Prediction</th>
-                        <th className="py-3 px-4">Status</th>
-                        <th className="py-3 px-4 text-right">Details</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50 text-sm">
-                      {records.slice(0, 4).map((rec, i) => (
-                        <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="py-3.5 px-4 font-mono font-bold text-slate-800">{rec.patientId}</td>
-                          <td className="py-3.5 px-4 font-semibold text-slate-700">{rec.name}</td>
-                          <td className="py-3.5 px-4 text-slate-500">{rec.date}</td>
-                          <td className="py-3.5 px-4 text-slate-600">{rec.prediction} ({rec.confidence}%)</td>
-                          <td className="py-3.5 px-4">
-                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${getRiskColor(rec.status)} border`}>
-                              {rec.status}
-                            </span>
-                          </td>
-                          <td className="py-3.5 px-4 text-right">
-                            <button 
-                              onClick={() => { setSelectedRecord(rec); setActiveTab('results'); }}
-                              className="text-xs font-bold text-clinical-600 hover:text-clinical-700 cursor-pointer"
-                            >
-                              View findings
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* B. NEW SCREENING TAB */}
-          {activeTab === 'new-screening' && (
-            <div className="grid md:grid-cols-12 gap-6 animate-fade-in">
-              
-              {/* Left Column: Form & Clinical Presets */}
-              <div className="md:col-span-8 space-y-6">
-                
-                {/* Clinical Preset Selection */}
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-xs space-y-4">
-                  <div>
-                    <h3 className="text-base font-bold text-slate-800 font-display">Simulated Baby Profiles</h3>
-                    <p className="text-xs text-slate-500">Pick a preset baby photo scan to test different AI diagnostic pipelines instantly</p>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    {sampleBabies.map((sb) => (
-                      <button
-                        key={sb.id}
-                        type="button"
-                        onClick={() => handleSelectSample(sb)}
-                        className="p-3 bg-slate-50 hover:bg-teal-50 border border-slate-100 hover:border-teal-300 rounded-xl text-left transition-all flex flex-col justify-between gap-2 group cursor-pointer"
-                      >
-                        <div>
-                          <span className="block text-xs font-bold text-slate-800 group-hover:text-teal-900">{sb.name}</span>
-                          <span className="block text-[10px] text-slate-400">{sb.ageDays} Days • {sb.gender}</span>
-                        </div>
-                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold inline-block self-start ${
-                          sb.risk === "High Risk" ? "bg-rose-100 text-rose-700" :
-                          sb.risk === "Moderate Risk" ? "bg-amber-100 text-amber-700" :
-                          "bg-emerald-100 text-emerald-700"
-                        }`}>
-                          {sb.risk}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Patient Information Form */}
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-xs">
-                  <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-4">
-                    <User className="w-5 h-5 text-clinical-600" />
-                    <h3 className="text-base font-bold text-slate-800 font-display">Patient Information</h3>
-                  </div>
-
-                  <form className="grid grid-cols-1 sm:grid-cols-2 gap-4" onSubmit={handleStartAnalysis}>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Patient ID</label>
-                      <input 
-                        type="text" 
-                        readOnly 
-                        value={formData.patientId} 
-                        className="block w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold font-mono text-slate-500 focus:outline-hidden"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Baby Name *</label>
-                      <input 
-                        type="text" 
-                        required
-                        value={formData.babyName} 
-                        onChange={(e) => setFormData(prev => ({ ...prev, babyName: e.target.value }))}
-                        className="block w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-clinical-500 focus:border-clinical-500 focus:outline-hidden"
-                        placeholder="e.g. Baby Garcia"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Age (Days) *</label>
-                      <input 
-                        type="number" 
-                        required
-                        min="1" 
-                        max="30"
-                        value={formData.ageDays} 
-                        onChange={(e) => setFormData(prev => ({ ...prev, ageDays: e.target.value }))}
-                        className="block w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-clinical-500 focus:border-clinical-500 focus:outline-hidden"
-                        placeholder="e.g. 4"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Gender *</label>
-                      <select 
-                        value={formData.gender} 
-                        onChange={(e) => setFormData(prev => ({ ...prev, gender: e.target.value }))}
-                        className="block w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-clinical-500 focus:border-clinical-500 focus:outline-hidden bg-white"
-                      >
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                        <option value="Undetermined">Undetermined</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Hospital Name</label>
-                      <input 
-                        type="text" 
-                        value={formData.hospitalName} 
-                        onChange={(e) => setFormData(prev => ({ ...prev, hospitalName: e.target.value }))}
-                        className="block w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-clinical-500 focus:border-clinical-500 focus:outline-hidden"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Attending Doctor</label>
-                      <input 
-                        type="text" 
-                        value={formData.doctorName} 
-                        onChange={(e) => setFormData(prev => ({ ...prev, doctorName: e.target.value }))}
-                        className="block w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-clinical-500 focus:border-clinical-500 focus:outline-hidden"
-                      />
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Clinical Assessment Notes</label>
-                      <textarea 
-                        rows="3"
-                        value={formData.notes} 
-                        onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                        className="block w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-clinical-500 focus:border-clinical-500 focus:outline-hidden"
-                        placeholder="Add visual findings, TcB measurements, gestational details..."
-                      />
-                    </div>
-
-                    <div className="sm:col-span-2 pt-4 border-t border-slate-100 flex justify-between items-center">
-                      <span className="text-xs text-slate-400 font-semibold">* Required clinical indicators</span>
-                      <button
-                        type="submit"
-                        disabled={pipelineState !== 'idle'}
-                        className="px-6 py-3 bg-clinical-600 hover:bg-clinical-700 text-white text-sm font-bold rounded-xl shadow-md transition-all hover:scale-[1.02] flex items-center gap-2 disabled:opacity-50"
-                      >
-                        <Activity className="w-4 h-4 animate-pulse" />
-                        Analyze Baby Scan
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-
-              {/* Right Column: Image Upload & Pipeline Pipeline */}
-              <div className="md:col-span-4 space-y-6">
-                
-                {/* Drag and Drop Upload */}
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-xs">
-                  <h3 className="text-base font-bold text-slate-800 font-display">Image Upload</h3>
-
-                  <div 
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                    className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${
-                      isDragOver ? 'border-clinical-500 bg-clinical-50/50' : 
-                      uploadedImage ? 'border-emerald-300 bg-emerald-50/10' : 'border-slate-200 hover:border-slate-300'
-                    }`}
-                  >
-                    {!uploadedImage ? (
-                      <div className="space-y-3">
-                        <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center mx-auto border border-slate-100">
-                          <Upload className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-slate-700">Drag & drop baby's photo here</p>
-                          <p className="text-[10px] text-slate-400 mt-1">Supports JPEG, PNG (Max 10MB)</p>
-                        </div>
-                        <div>
-                          <label className="px-4 py-2 bg-clinical-50 hover:bg-clinical-100 text-clinical-600 rounded-lg text-xs font-bold border border-clinical-200 transition-colors inline-block cursor-pointer">
-                            Browse Files
-                            <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
-                          </label>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {/* Mock baby image preview */}
-                        <div className="aspect-square w-24 bg-slate-900 rounded-xl mx-auto flex items-center justify-center overflow-hidden border border-slate-200 relative group">
-                          <Baby className="w-10 h-10 text-teal-100 opacity-60" />
-                          <div className="absolute inset-0 bg-teal-600/10" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-slate-800 truncate max-w-xs">{uploadedImage.name}</p>
-                          <p className="text-[10px] text-slate-400">{uploadedImage.size} • Uploaded</p>
-                        </div>
-                        <button 
-                          onClick={() => setUploadedImage(null)}
-                          className="text-[10px] font-bold text-rose-500 hover:underline"
-                        >
-                          Remove Photo
-                        </button>
-                      </div>
-                    )}
-
-                    {uploadProgress > 0 && uploadProgress < 100 && (
-                      <div className="mt-4 space-y-1">
-                        <div className="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
-                          <div className="h-full bg-clinical-600" style={{ width: `${uploadProgress}%` }} />
-                        </div>
-                        <span className="text-[9px] text-slate-400 font-bold">{uploadProgress}% Uploading...</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Pipeline State Timeline */}
-                {pipelineState !== 'idle' && (
-                  <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-xs space-y-4">
-                    <h3 className="text-sm font-bold text-slate-700 tracking-wide uppercase">Processing Pipeline</h3>
-                    
-                    {/* Progress Bar */}
-                    <div className="space-y-1.5">
-                      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-clinical-550 transition-all duration-500 rounded-full"
-                          style={{ width: `${pipelineProgress}%` }}
-                        />
-                      </div>
-                      <div className="flex justify-between items-center text-[10px] font-bold text-slate-400">
-                        <span>PIPELINE LOAD</span>
-                        <span>{pipelineProgress}%</span>
-                      </div>
-                    </div>
-
-                    {/* Check list */}
-                    <div className="space-y-3 pt-2">
-                      
-                      {/* Step 1 */}
-                      <div className="flex items-center gap-3">
-                        <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
-                          pipelineState !== 'idle' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'
-                        }`}>
-                          ✓
-                        </span>
-                        <span className="text-xs font-semibold text-slate-700">Uploaded Complete</span>
-                      </div>
-
-                      {/* Step 2 */}
-                      <div className="flex items-center gap-3">
-                        <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
-                          pipelineState !== 'idle' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'
-                        }`}>
-                          {pipelineState === 'uploaded' ? '○' : (pipelineState === 'quality' ? '⌛' : '✓')}
-                        </span>
-                        <span className="text-xs font-semibold text-slate-700">Quality Assessment</span>
-                      </div>
-
-                      {/* Step 3 */}
-                      <div className="flex items-center gap-3">
-                        <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
-                          pipelineState !== 'uploaded' && pipelineState !== 'quality' && pipelineState !== 'idle' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'
-                        }`}>
-                          {pipelineState === 'preprocessing' ? '⌛' : (pipelineState !== 'uploaded' && pipelineState !== 'quality' && pipelineState !== 'idle' ? '✓' : '○')}
-                        </span>
-                        <span className="text-xs font-semibold text-slate-700">Preprocessing Frame</span>
-                      </div>
-
-                      {/* Step 4 */}
-                      <div className="flex items-center gap-3">
-                        <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
-                          pipelineState === 'complete' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'
-                        }`}>
-                          {pipelineState === 'analysis' ? '⌛' : (pipelineState === 'complete' ? '✓' : '○')}
-                        </span>
-                        <span className="text-xs font-semibold text-slate-700">AI Neural Analysis</span>
-                      </div>
-
-                      {/* Step 5 */}
-                      <div className="flex items-center gap-3">
-                        <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
-                          pipelineState === 'complete' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'
-                        }`}>
-                          {pipelineState === 'complete' ? '✓' : '○'}
-                        </span>
-                        <span className="text-xs font-semibold text-slate-700">Prediction Complete</span>
-                      </div>
-
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* C. RESULTS TAB */}
-          {activeTab === 'results' && selectedRecord && (
-            <ErrorBoundary>
-              <div className="space-y-6 animate-fade-in">
-              
-              {/* Alert Warning for High Risk */}
-              {selectedRecord.status === "High Risk" && (
-                <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex items-start gap-3">
-                  <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="text-sm font-bold text-rose-800">Critical Referrals Guidelines Active</h4>
-                    <p className="text-xs text-rose-600 mt-1 leading-relaxed">
-                      AI screening indicates deep jaundice detection focus. Neonatal-Net v2 recommends scheduling immediate serum bilirubin lab confirmation.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Main Results Board */}
-              <div className="grid md:grid-cols-12 gap-6">
-                
-                {/* Left Column: Diagnostics visual comparison */}
-                <div className="md:col-span-7 space-y-6">
-                  <GradCamVisualizer riskLevel={selectedRecord.status} confidence={selectedRecord.confidence} />
-
-                  {/* Medical Recommendation Card */}
-                  <div className={`p-6 rounded-2xl border ${
-                    selectedRecord.status === "High Risk" ? "bg-rose-50 border-rose-100" :
-                    selectedRecord.status === "Moderate Risk" ? "bg-amber-50 border-amber-100" :
-                    "bg-emerald-50 border-emerald-100"
-                  } space-y-4`}>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className={`w-5 h-5 ${
-                        selectedRecord.status === "High Risk" ? "text-rose-500" :
-                        selectedRecord.status === "Moderate Risk" ? "text-amber-500" :
-                        "text-emerald-500"
-                      }`} />
-                      <h3 className="text-base font-bold text-slate-800 font-display">
-                        {clinicalRecommendations[selectedRecord.status]?.title || "Clinical Guidelines"}
-                      </h3>
-                    </div>
-
-                    <p className="text-xs text-slate-700 leading-relaxed font-medium">
-                      {clinicalRecommendations[selectedRecord.status]?.message}
-                    </p>
-
-                    <div className="pt-2">
-                      <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Recommended Protocols:</span>
-                      <ul className="text-xs text-slate-600 space-y-1.5 list-disc pl-4 font-semibold">
-                        {clinicalRecommendations[selectedRecord.status]?.actions?.map((act, i) => (
-                          <li key={i}>{act}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right Column: Patient stats & specs */}
-                <div className="md:col-span-5 space-y-6">
-                  
-                  {/* Summary Metric Board */}
-                  <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-xs space-y-6 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-slate-50 rounded-bl-full" />
-                    
-                    <div>
-                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold tracking-wide uppercase ${getRiskBadge(selectedRecord.status)}`}>
-                        {selectedRecord.status}
-                      </span>
-                      <h3 className="text-2xl font-bold text-slate-800 font-display mt-2">{selectedRecord.prediction}</h3>
-                      <span className="text-[10px] text-slate-400 font-mono font-bold">{selectedRecord.modelUsed} Analysis Report</span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 border-t border-b border-slate-100 py-4">
-                      <div>
-                        <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Confidence</span>
-                        <span className="text-xl font-bold text-slate-700 font-mono">{selectedRecord.confidence}%</span>
-                      </div>
-                      <div>
-                        <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Time Taken</span>
-                        <span className="text-xl font-bold text-slate-700 font-mono">{selectedRecord.processingTime}</span>
-                      </div>
-                    </div>
-
-                    {/* Patient summary details */}
-                    <div className="space-y-2 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-slate-400 font-medium">Patient ID:</span>
-                        <span className="font-mono font-bold text-slate-700">{selectedRecord.patientId}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400 font-medium">Infant Name:</span>
-                        <span className="font-bold text-slate-700">{selectedRecord.name}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400 font-medium">Age at Scan:</span>
-                        <span className="font-semibold text-slate-700">{selectedRecord.ageDays} Days</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400 font-medium">Gender:</span>
-                        <span className="font-semibold text-slate-700">{selectedRecord.gender}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400 font-medium">Hospital Unit:</span>
-                        <span className="font-semibold text-slate-700">{selectedRecord.hospital}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400 font-medium">Screener:</span>
-                        <span className="font-semibold text-slate-700">{selectedRecord.doctor}</span>
-                      </div>
-                    </div>
-
-                    {/* Actions Panel */}
-                    <div className="pt-2 border-t border-slate-100 flex gap-2">
-                      <button 
-                        onClick={() => setActiveTab('reports')}
-                        className="flex-1 flex justify-center items-center gap-1.5 px-4 py-2.5 bg-clinical-600 hover:bg-clinical-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs"
-                      >
-                        <FileText className="w-3.5 h-3.5" />
-                        Generate Report
-                      </button>
-                      <button 
-                        onClick={() => { setSelectedRecord(selectedRecord); setActiveTab('reports'); setTimeout(() => window.print(), 300); }}
-                        className="flex justify-center items-center p-2.5 border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl transition-colors"
-                      >
-                        <Printer className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Disclaimer Card */}
-                  <div className="p-4 bg-slate-100 border border-slate-200/60 rounded-xl">
-                    <p className="text-[10px] text-slate-500 leading-relaxed text-center font-medium">
-                      This application is intended for screening and research purposes only and does not replace professional medical diagnosis.
-                    </p>
-                  </div>
-
-                </div>
-              </div>
-            </div>
-            </ErrorBoundary>
-          )}
-
-          {/* D. REPORTS TAB */}
-          {activeTab === 'reports' && selectedRecord && (
-            <ErrorBoundary>
-              <div className="bg-white rounded-3xl border border-slate-100 shadow-xl overflow-hidden p-8 space-y-8 animate-fade-in print-card relative">
-              
-              {/* Report Options Floating header (Hidden during print) */}
-              <div className="no-print absolute top-6 right-8 flex items-center gap-2">
-                <button 
-                  onClick={handlePrint}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold border border-slate-200 transition-colors"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  Print Report
-                </button>
-                <button 
-                  onClick={handleDownloadPDF}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-clinical-600 hover:bg-clinical-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors"
-                >
-                  <FileDown className="w-3.5 h-3.5" />
-                  Download PDF
-                </button>
-                <button 
-                  onClick={handleSaveRecord}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-black text-white rounded-xl text-xs font-bold shadow-xs transition-colors"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  Save Record
-                </button>
-              </div>
-
-              {/* Institution Header */}
-              <div className="flex justify-between items-start border-b-2 border-slate-100 pb-6 pt-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl font-bold text-slate-800 font-display">Nova Jaundice Screening Report</span>
-                  </div>
-                  <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Clinical Analytics Portal • Hospital Copy</p>
-                </div>
-                <div className="text-right text-xs">
-                  <span className="block font-bold text-slate-800">{selectedRecord.hospital}</span>
-                  <span className="block text-slate-400 font-medium">Date: {selectedRecord.date}</span>
-                </div>
-              </div>
-
-              {/* Patient Profile */}
-              <div className="bg-slate-50 p-6 rounded-2xl border border-slate-150 grid grid-cols-2 md:grid-cols-4 gap-6">
-                <div>
-                  <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Patient Identifier</span>
-                  <span className="text-sm font-bold text-slate-800 font-mono mt-0.5 block">{selectedRecord.patientId}</span>
-                </div>
-                <div>
-                  <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Baby Name</span>
-                  <span className="text-sm font-bold text-slate-800 mt-0.5 block">{selectedRecord.name}</span>
-                </div>
-                <div>
-                  <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Age (Days)</span>
-                  <span className="text-sm font-semibold text-slate-800 mt-0.5 block">{selectedRecord.ageDays} Days</span>
-                </div>
-                <div>
-                  <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Gender</span>
-                  <span className="text-sm font-semibold text-slate-800 mt-0.5 block">{selectedRecord.gender}</span>
-                </div>
-              </div>
-
-              {/* Diagnostic findings */}
-              <div className="grid md:grid-cols-12 gap-8">
-                
-                {/* Diagnostic Stats */}
-                <div className="md:col-span-5 space-y-4">
-                  <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-2">Analysis Findings</span>
-                  
-                  <div className="space-y-3">
-                    <div>
-                      <span className="text-[10px] text-slate-400 font-semibold uppercase">Prediction</span>
-                      <span className={`block text-lg font-extrabold mt-0.5 ${
-                        selectedRecord.status === 'High Risk' ? 'text-rose-600' :
-                        selectedRecord.status === 'Moderate Risk' ? 'text-amber-600' :
-                        'text-emerald-600'
-                      }`}>
-                        {selectedRecord.prediction}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <span className="text-[10px] text-slate-400 font-semibold uppercase">Confidence Score</span>
-                        <span className="block text-base font-bold text-slate-800 mt-0.5 font-mono">{selectedRecord.confidence}%</span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-slate-400 font-semibold uppercase">Classification</span>
-                        <span className="block text-base font-bold text-slate-800 mt-0.5">{selectedRecord.status}</span>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <span className="text-[10px] text-slate-400 font-semibold uppercase">Processing Speed</span>
-                        <span className="block text-sm font-semibold text-slate-700 mt-0.5 font-mono">{selectedRecord.processingTime}</span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-slate-400 font-semibold uppercase">Model Version</span>
-                        <span className="block text-sm font-semibold text-slate-700 mt-0.5 font-mono">{selectedRecord.modelUsed}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Recommendations */}
-                <div className="md:col-span-7 space-y-4">
-                  <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-2">Medical Guidelines</span>
-                  
-                  <div className="space-y-3 text-xs leading-relaxed text-slate-700">
-                    <p className="font-bold text-slate-800">{clinicalRecommendations[selectedRecord.status]?.title}</p>
-                    <p className="font-medium">{clinicalRecommendations[selectedRecord.status]?.message}</p>
-                    
-                    <div className="pt-2">
-                      <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Assigned Protocols:</span>
-                      <ul className="list-disc pl-4 space-y-1 font-semibold text-slate-650">
-                        {clinicalRecommendations[selectedRecord.status]?.actions?.map((act, i) => (
-                          <li key={i}>{act}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-
-              {/* Disclaimer */}
-              <div className="bg-slate-50 p-4 border border-slate-150 rounded-2xl text-[10px] text-slate-500 text-center leading-relaxed">
-                <strong>HIPAA Regulatory Note:</strong> This application is intended for pre-screening and clinical research purposes only. It is not a direct substitute for clinical evaluation by a physician or Total Serum Bilirubin (TSB) laboratory blood panels.
-              </div>
-
-              {/* Signature board */}
-              <div className="flex justify-between items-end pt-12">
-                <div className="space-y-1">
-                  <span className="block text-[10px] text-slate-400 font-bold uppercase">Attending Pediatrician</span>
-                  <span className="block text-sm font-bold text-slate-800 border-b border-slate-200 pb-1 pr-16">{selectedRecord.doctor}</span>
-                </div>
-                <div className="space-y-1 text-right">
-                  <span className="block text-[10px] text-slate-400 font-bold uppercase">Official Signature Approval</span>
-                  <div className="h-10 w-32 border-b border-slate-200 border-dashed" />
-                </div>
-              </div>
-
-            </div>
-            </ErrorBoundary>
-          )}
-
-          {/* E. PATIENT RECORDS TAB */}
-          {activeTab === 'patient-records' && (
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-6 space-y-6 animate-fade-in">
-              
-              {/* Search and Filters bar */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                
-                {/* Search */}
-                <div className="relative w-full sm:max-w-xs">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                  <input 
-                    type="text" 
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-clinical-500 focus:outline-hidden"
-                    placeholder="Search name or ID..."
-                  />
-                </div>
-
-                {/* Status Filter */}
-                <div className="flex items-center gap-3">
-                  <span className="flex items-center gap-1 text-xs text-slate-400 font-bold uppercase">
-                    <Filter className="w-3.5 h-3.5" />
-                    Filter
-                  </span>
-                  
-                  <div className="flex bg-slate-100 p-0.5 rounded-lg text-xs font-semibold">
-                    {['All', 'High Risk', 'Moderate Risk', 'Normal'].map((tab) => (
-                      <button
-                        key={tab}
-                        onClick={() => setStatusFilter(tab)}
-                        className={`px-3 py-1.5 rounded-md transition-all cursor-pointer ${
-                          statusFilter === tab ? 'bg-white text-slate-850 shadow-xs' : 'text-slate-500 hover:text-slate-800'
-                        }`}
-                      >
-                        {tab}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Records Table */}
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                      <th className="py-3 px-4">Patient ID</th>
-                      <th className="py-3 px-4">Baby Name</th>
-                      <th className="py-3 px-4">Age (Days)</th>
-                      <th className="py-3 px-4">Gender</th>
-                      <th className="py-3 px-4">Date Evaluated</th>
-                      <th className="py-3 px-4">AI Prediction</th>
-                      <th className="py-3 px-4">Status</th>
-                      <th className="py-3 px-4 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50 text-sm">
-                    {filteredRecords.length > 0 ? (
-                      filteredRecords.map((rec) => (
-                        <tr key={rec.patientId} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="py-3.5 px-4 font-mono font-bold text-slate-800">{rec.patientId}</td>
-                          <td className="py-3.5 px-4 font-semibold text-slate-700">{rec.name}</td>
-                          <td className="py-3.5 px-4 text-slate-600 font-medium">{rec.ageDays} Days</td>
-                          <td className="py-3.5 px-4 text-slate-500">{rec.gender}</td>
-                          <td className="py-3.5 px-4 text-slate-500">{rec.date}</td>
-                          <td className="py-3.5 px-4 font-medium text-slate-700">{rec.prediction} ({rec.confidence}%)</td>
-                          <td className="py-3.5 px-4">
-                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${getRiskColor(rec.status)} border`}>
-                              {rec.status}
-                            </span>
-                          </td>
-                          <td className="py-3.5 px-4 text-right">
-                            <button
-                              onClick={() => {
-                                setModalRecord(rec);
-                                setIsDetailsModalOpen(true);
-                              }}
-                              className="text-xs font-bold text-clinical-600 hover:text-clinical-700 cursor-pointer mr-3"
-                            >
-                              Quick View
-                            </button>
-                            <button 
-                              onClick={() => {
-                                setSelectedRecord(rec);
-                                setActiveTab('results');
-                              }}
-                              className="text-xs font-bold text-slate-700 hover:text-slate-900 cursor-pointer"
-                            >
-                              Diagnostics
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan="8" className="py-12 text-center text-slate-400 font-medium">
-                          No infant screening records found matching search queries.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* F. ANALYTICS TAB */}
-          {activeTab === 'analytics' && (
-            <div className="space-y-6 animate-fade-in">
-              <div className="grid md:grid-cols-12 gap-6">
-                
-                {/* 1. Line chart weekly screenings */}
-                <div className="md:col-span-8">
-                  <WeeklyScreeningsChart />
-                </div>
-
-                {/* 2. Donut breakdown */}
-                <div className="md:col-span-4">
-                  <RiskLevelBreakdownChart />
-                </div>
-
-                {/* 3. Bar chart distribution */}
-                <div className="md:col-span-6">
-                  <PredictionDistributionChart />
-                </div>
-
-                {/* 4. Mini Clinical Performance card */}
-                <div className="md:col-span-6 bg-white p-6 rounded-2xl border border-slate-100 shadow-xs flex flex-col justify-between">
-                  <div>
-                    <h4 className="text-base font-semibold text-slate-800">AI Model Technical Performance</h4>
-                    <p className="text-xs text-slate-500">Real-time telemetry from validation nodes</p>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4 my-6">
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                      <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Classification Accuracy</span>
-                      <span className="text-2xl font-black text-clinical-600 font-display mt-1 block">96.4%</span>
-                      <span className="text-[10px] text-slate-400 mt-1 block">95% Confidence interval [94.1%, 98.2%]</span>
-                    </div>
-
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                      <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">F1-Score (Jaundice class)</span>
-                      <span className="text-2xl font-black text-clinical-600 font-display mt-1 block">94.8%</span>
-                      <span className="text-[10px] text-slate-400 mt-1 block">Valid skin range calibration active</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-50 p-3 rounded-lg">
-                    <Info className="w-4 h-4 text-clinical-400" />
-                    <span>Tested on 2,400+ infant image cases representing multi-ethnic skin phototypes.</span>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-          )}
-
-          {/* AI MODEL TRAINING TAB */}
-          {activeTab === 'ai-training' && (
-            <div className="animate-fade-in">
-              <AITrainingConsole modelState={modelState} onModelTrained={fetchModelStatus} showToast={showToast} />
-            </div>
-          )}
-
-          {/* G. SETTINGS TAB */}
-          {activeTab === 'settings' && (
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-6 space-y-6 max-w-3xl mx-auto animate-fade-in">
-              <h3 className="text-base font-bold text-slate-850 border-b border-slate-100 pb-3 font-display">Configure Platform Settings</h3>
-              
-              <div className="space-y-6">
-                
-                {/* 1. Theme selection */}
-                <div className="space-y-2">
-                  <span className="block text-xs font-bold text-slate-450 uppercase tracking-wider">Display Theme</span>
-                  <div className="flex gap-3">
-                    {['light', 'dark', 'hospital-slate'].map((t) => (
-                      <button
-                        key={t}
-                        onClick={() => { setTheme(t); showToast(`Theme changed to ${t}`, "info"); }}
-                        className={`px-4 py-2 border rounded-xl text-xs font-bold capitalize transition-all cursor-pointer ${
-                          theme === t ? 'border-clinical-600 bg-clinical-50 text-clinical-600 font-extrabold' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
-                        }`}
-                      >
-                        {t.replace('-', ' ')}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 2. Notifications */}
-                <div className="space-y-3">
-                  <span className="block text-xs font-bold text-slate-450 uppercase tracking-wider">Notification Preferences</span>
-                  <div className="space-y-2.5">
-                    <label className="flex items-center gap-3 text-xs font-semibold text-slate-650 cursor-pointer select-none">
-                      <input 
-                        type="checkbox" 
-                        checked={notifications.email} 
-                        onChange={(e) => setNotifications(prev => ({ ...prev, email: e.target.checked }))}
-                        className="w-4 h-4 rounded-md border-slate-300 text-clinical-600 focus:ring-clinical-500"
-                      />
-                      Email critical High Risk referral alerts instantly
-                    </label>
-                    <label className="flex items-center gap-3 text-xs font-semibold text-slate-650 cursor-pointer select-none">
-                      <input 
-                        type="checkbox" 
-                        checked={notifications.syslogs} 
-                        onChange={(e) => setNotifications(prev => ({ ...prev, syslogs: e.target.checked }))}
-                        className="w-4 h-4 rounded-md border-slate-300 text-clinical-600 focus:ring-clinical-500"
-                      />
-                      Archive screening reports to hospital EHR log systems
-                    </label>
-                  </div>
-                </div>
-
-                {/* 3. AI Model specs */}
-                <div className="space-y-4 pt-4 border-t border-slate-100">
-                  <span className="block text-xs font-bold text-slate-450 uppercase tracking-wider">AI Calibration & Sensitivity</span>
-                  
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-xs font-semibold">
-                      <span className="text-slate-600">Decision Confidence Threshold</span>
-                      <span className="text-slate-800 font-bold">{threshold}%</span>
-                    </div>
-                    <input 
-                      type="range" 
-                      min="70" 
-                      max="98" 
-                      value={threshold} 
-                      onChange={(e) => setThreshold(e.target.value)}
-                      className="w-full accent-clinical-600 cursor-pointer"
-                    />
-                    <p className="text-[10px] text-slate-400">Higher values trigger fewer false positives but require higher visual certainty.</p>
-                  </div>
-
-                  <label className="flex items-center gap-3 text-xs font-semibold text-slate-650 cursor-pointer select-none">
-                    <input 
-                      type="checkbox" 
-                      checked={melaninCorrection} 
-                      onChange={(e) => setMelaninCorrection(e.target.checked)}
-                      className="w-4 h-4 rounded-md border-slate-300 text-clinical-600 focus:ring-clinical-500"
-                    />
-                    Auto-compensate for Fitzpatrick Skin Phototype (Melanin Curve calibration)
-                  </label>
-                </div>
-
-                {/* Save button */}
-                <div className="pt-4 border-t border-slate-100 flex justify-end">
-                  <button 
-                    onClick={() => showToast("Platform configurations updated successfully!", "success")}
-                    className="px-5 py-2.5 bg-clinical-600 text-white rounded-xl text-xs font-bold shadow-xs hover:bg-clinical-700 transition-colors"
-                  >
-                    Save Configuration
-                  </button>
-                </div>
-
-              </div>
-            </div>
-          )}
-
-          {/* H. HELP TAB */}
-          {activeTab === 'help' && (
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-6 space-y-6 max-w-3xl mx-auto animate-fade-in">
-              <h3 className="text-base font-bold text-slate-850 border-b border-slate-100 pb-3 font-display">Nova FAQ & Knowledge Center</h3>
-              
-              <div className="space-y-4 text-sm text-slate-600">
-                <div className="space-y-1.5">
-                  <h4 className="font-bold text-slate-800 font-display">1. How does Nova scan for Jaundice?</h4>
-                  <p className="text-xs leading-relaxed">
-                    Nova captures or analyzes a raw skin image of the infant's face (the forehead/nose/cheek region). Our deep convolutional network analyzes dermal pixels, separating red-green-blue channels and correlating skin pigmentation values with standard Bilirubin concentration curves.
-                  </p>
-                </div>
-
-                <div className="space-y-1.5">
-                  <h4 className="font-bold text-slate-800 font-display">2. Does Nova replace Transcutaneous Bilirubin (TcB) or Serum tests?</h4>
-                  <p className="text-xs leading-relaxed">
-                    No. Nova is a rapid, non-invasive pre-screening tool designed to minimize unnecessary blood drawing heel-sticks. High Risk or Moderate Risk outcomes flagged by Nova must always be confirmed using standard hospital lab-validated Total Serum Bilirubin (TSB) tests.
-                  </p>
-                </div>
-
-                <div className="space-y-1.5">
-                  <h4 className="font-bold text-slate-800 font-display">3. What is the Grad-CAM Heatmap?</h4>
-                  <p className="text-xs leading-relaxed">
-                    Grad-CAM (Gradient-weighted Class Activation Mapping) is an explainable AI tool. It renders a thermal focus map over the infant face, showing which skin areas influenced the neural network's decision. If the AI highlights non-skin zones (like the blanket or clothing), the screener is advised to retake the photo.
-                  </p>
-                </div>
-
-                <div className="space-y-1.5">
-                  <h4 className="font-bold text-slate-800 font-display">4. Recommended photo capture guidelines:</h4>
-                  <ul className="text-xs leading-relaxed list-disc pl-5 space-y-1">
-                    <li>Ensure daylight or bright, neutral-white hospital examination lamps.</li>
-                    <li>Avoid shadows or direct warm-yellow incandescent lighting on the face.</li>
-                    <li>Capture the baby sleeping or calm with eyes closed, centering the nose/forehead area in the camera frame.</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          )}
-
-        </div>
-      </main>
-
-      {/* 2. Detailed Patient Modal */}
-      {isDetailsModalOpen && modalRecord && (
-        <Modal 
-          isOpen={isDetailsModalOpen} 
-          onClose={() => setIsDetailsModalOpen(false)}
-          title={`Patient Record: ${modalRecord.patientId}`}
-        >
-          <div className="space-y-5 text-sm">
-            <div className="grid grid-cols-2 gap-4 pb-4 border-b border-slate-100">
-              <div>
-                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Baby Name</span>
-                <span className="font-bold text-slate-800">{modalRecord.name}</span>
-              </div>
-              <div>
-                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Age (Days)</span>
-                <span className="font-semibold text-slate-800">{modalRecord.ageDays} Days</span>
-              </div>
-              <div>
-                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Gender</span>
-                <span className="font-semibold text-slate-800">{modalRecord.gender}</span>
-              </div>
-              <div>
-                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Date Evaluated</span>
-                <span className="font-semibold text-slate-850">{modalRecord.date}</span>
-              </div>
-            </div>
-
-            <div>
-              <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Diagnostic Output</span>
-              <div className="flex items-center gap-2">
-                <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold ${getRiskColor(modalRecord.status)} border`}>
-                  {modalRecord.status}
-                </span>
-                <span className="font-bold text-slate-800 text-sm">
-                  {modalRecord.prediction} ({modalRecord.confidence}% Confidence)
-                </span>
-              </div>
-            </div>
-
-            {modalRecord.notes && (
-              <div>
-                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Clinical Notes</span>
-                <p className="text-xs text-slate-650 bg-slate-50 p-3 rounded-xl border border-slate-100 font-semibold leading-relaxed">
-                  {modalRecord.notes}
-                </p>
-              </div>
-            )}
-
-            <div className="pt-4 border-t border-slate-100 flex justify-end gap-2">
-              <button 
-                onClick={() => setIsDetailsModalOpen(false)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-colors"
-              >
-                Close View
-              </button>
-              <button 
-                onClick={() => {
-                  setSelectedRecord(modalRecord);
-                  setIsDetailsModalOpen(false);
-                  setActiveTab('reports');
-                }}
-                className="px-4 py-2 bg-clinical-600 hover:bg-clinical-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors"
-              >
-                Printable Report
-              </button>
-            </div>
+        {health === 'offline' && (
+          <div role="status" className="no-print bg-red-50 border-b border-red-200 px-6 py-2.5 text-sm text-red-800">
+            The screening model is offline. Photos cannot be analysed until the model server is running again.
           </div>
-        </Modal>
-      )}
+        )}
 
+        <main id="portal-main" className="flex-1 overflow-y-auto">
+          <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8 max-w-[1280px] mx-auto">{screen}</div>
+        </main>
+      </div>
     </div>
   );
 };

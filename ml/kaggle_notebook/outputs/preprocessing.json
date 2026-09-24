@@ -1,0 +1,28 @@
+{
+  "deep": {
+    "input_size": [
+      224,
+      224
+    ],
+    "color": "RGB",
+    "rescale": 0.00392156862745098,
+    "class_indices": {
+      "jaundice": 0,
+      "normal": 1
+    },
+    "output": "sigmoid = P(normal); P(jaundice) = 1 - output"
+  },
+  "classical": {
+    "input_size": [
+      64,
+      64
+    ],
+    "color": "grayscale (cv2.IMREAD_GRAYSCALE)",
+    "scaling": "none (raw 0-255)",
+    "features": "flattened 4096 pixels",
+    "labels": {
+      "Normal": 0,
+      "Jaundice": 1
+    }
+  }
+}

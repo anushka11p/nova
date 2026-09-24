@@ -32,3 +32,18 @@ pushpa_Files/
 training_Files/
 
 
+
+# ML training
+ml/.venv/
+ml/train.log
+test-images/
+backend/data/images/
+node_modules.nosync
+ml/kaggle_notebook/outputs/models/
+ml/kaggle_notebook/train.log
+backend/data/uploads/
+.impeccable/shots/
+.impeccable/sketches/
+.impeccable/hook.cache.json
+.impeccable/questions/
+.claude/

@@ -3,70 +3,72 @@ from flask_cors import CORS
 import tensorflow as tf
 import numpy as np
 from PIL import Image
+import json
 import os
 
 app = Flask(__name__)
 CORS(app)
 
-# Resolve absolute path to the model file
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(BASE_DIR, "../neobloom_model.keras")
+MODEL_PATH = os.path.join(BASE_DIR, "../nova_jaundice.keras")
+METRICS_PATH = os.path.join(BASE_DIR, "../model_metrics.json")
 
 print(f"Loading trained AI model from: {MODEL_PATH}")
 model = tf.keras.models.load_model(MODEL_PATH)
+metrics = json.load(open(METRICS_PATH))
+THRESHOLD = metrics["threshold"]
 
-IMG_SIZE = (224, 224)
+IMG_SIZE = 224
+
+
+def preprocess(file):
+    # Centre-crop to square (training photos are square), resize, keep raw 0-255 pixels:
+    # normalisation is built into the model.
+    img = Image.open(file.stream).convert("RGB")
+    w, h = img.size
+    side = min(w, h)
+    img = img.crop(((w - side) // 2, (h - side) // 2, (w + side) // 2, (h + side) // 2))
+    img = img.resize((IMG_SIZE, IMG_SIZE), Image.BILINEAR)
+    return np.expand_dims(np.asarray(img, dtype=np.float32), 0)
+
 
 @app.route("/")
 def home():
     return "Nova AI Inference Server Running!"
+
+
+@app.route("/model")
+def model_info():
+    return jsonify(metrics)
+
 
 @app.route("/predict", methods=["POST"])
 def predict():
     if "image" not in request.files:
         return jsonify({"error": "No image uploaded"}), 400
 
-    image = request.files["image"]
-
-    # Save file temporarily
-    uploads_dir = os.path.join(BASE_DIR, "uploads")
-    os.makedirs(uploads_dir, exist_ok=True)
-    filepath = os.path.join(uploads_dir, image.filename)
-    image.save(filepath)
-
     try:
-        # Preprocess image
-        img = Image.open(filepath).convert("RGB")
-        img = img.resize(IMG_SIZE)
-
-        img_array = np.array(img, dtype=np.float32)
-        img_array = img_array / 255.0
-        img_array = np.expand_dims(img_array, axis=0)
-
-        # Run inference
-        prediction = model.predict(img_array)[0][0]
-
-        # Classify based on Keras model outputs
-        # Pushpa's original logic: >= 0.5 is Normal, < 0.5 is Jaundice
-        if prediction >= 0.5:
-            result = "Normal"
-            confidence = prediction
-        else:
-            result = "Jaundice"
-            confidence = 1 - prediction
-
-        return jsonify({
-            "prediction": result,
-            "confidence": round(float(confidence * 100), 2)
-        })
+        p = float(model.predict(preprocess(request.files["image"]), verbose=0)[0][0])
     except Exception as e:
         print(f"Error during prediction: {e}")
         return jsonify({"error": str(e)}), 500
-    finally:
-        # Ensure cleanup
-        if os.path.exists(filepath):
-            os.remove(filepath)
+
+    if p >= THRESHOLD:
+        risk, result = "High", "Jaundice"
+    elif p >= THRESHOLD / 2:
+        risk, result = "Moderate", "Possible Jaundice"
+    else:
+        risk, result = "Normal", "Normal"
+
+    return jsonify({
+        "prediction": result,
+        "risk": risk,
+        "probability": round(p, 4),
+        "confidence": round((p if p >= THRESHOLD else 1 - p) * 100, 2),
+        "threshold": THRESHOLD,
+        "model": metrics["model"],
+    })
+
 
 if __name__ == "__main__":
-    # Listen on port 8000
     app.run(port=8000, host="0.0.0.0")

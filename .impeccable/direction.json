@@ -1,0 +1,65 @@
+{
+  "title": "Choose the visual world for the Nova clinical portal",
+  "question": "The roll assigned the Ward Label System. Keep it, take an alternate, or re-roll.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Ward Label System",
+      "kicker": "THE ROLL",
+      "lineage": "Thermal-printed specimen labels, ID wristbands and alert-stripe conventions on every ward",
+      "thesis": "Every screening prints as a patient label: identity band on top, a risk flag stripe, and the result set like a lab value against its cut-off.",
+      "palette": [
+        "#F4F5F2",
+        "#15191E",
+        "#D7263D",
+        "#E8A317",
+        "#1F8A5B",
+        "#2B59C3"
+      ],
+      "materials": [
+        "thermal label stock",
+        "black direct-thermal print",
+        "colour alert stripes",
+        "real Code 128 barcodes of the patient ID"
+      ],
+      "viewport": "New screening: the photo and patient details on the left; on the right, a blank label that fills in as you type and prints its result stripe when analysis returns.",
+      "risk": "Leaning too literal (fake paper textures, skeuomorphic curls) would read as a gimmick; it has to stay flat, crisp print grammar."
+    },
+    {
+      "id": "challenger-hardware",
+      "label": "Bedside Instrument",
+      "lineage": "Creator-hardware desk instrument: keycap grid, one orange commit key, amber status readout",
+      "thesis": "The screening form as an instrument: one decisive Analyse key and a single-value readout of the jaundice likelihood.",
+      "case": "Fuses partly: the one-key, one-readout discipline suits the bedside task, but gunmetal hardware reads as a gadget rather than hospital software.",
+      "hero": "https://impeccable.style/worlds/cards/design-canon-creator-hardware-bench-hero.webp"
+    },
+    {
+      "id": "challenger-rail",
+      "label": "Cutting-bench Rail",
+      "lineage": "Film editor's select rail: perforated strip, punched frames, tape flags",
+      "thesis": "Screenings strung along a rail as frames, flagged where you stopped, set-aside cases hung on pins below.",
+      "case": "Fuses poorly: an orange-on-black editing bench fights a bright ward and drowns the red/amber/green risk code.",
+      "hero": "https://impeccable.style/worlds/cards/operate-a-cutting-bench-select-rail-hero.webp"
+    },
+    {
+      "id": "challenger-onebit",
+      "label": "One-bit Desktop",
+      "lineage": "Early black-and-white desktop: dither, windows, marching ants",
+      "thesis": "Records as overlapping windows on one desktop plane.",
+      "case": "Fuses poorly: dither-only greys cannot carry the colour-plus-label risk code the safety principle requires.",
+      "hero": "https://impeccable.style/worlds/cards/medium-native-one-bit-desktop-hero.webp"
+    }
+  ],
+  "reroll": true,
+  "canon": true,
+  "canonCard": {
+    "label": "The category standard",
+    "thesis": "A clean hospital-software dashboard in the style of modern EHR and public-health service design, executed impeccably.",
+    "viewport": "Light sidebar navigation, a clear page title, results in well-spaced cards and tables.",
+    "risk": "Safe and familiar; easy to end up looking like every other admin template."
+  },
+  "steer": true,
+  "seed": "904e6c1a",
+  "assignedIndex": 3,
+  "chosen": "assigned"
+}

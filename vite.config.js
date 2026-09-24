@@ -12,7 +12,9 @@ export default defineConfig({
     watch: {
       ignored: [
         '**/backend/**',
-        '**/pushpa_Files/**'
+        '**/pushpa_Files/**',
+        '**/ml/**',
+        '**/mobile/**'
       ]
     },
     proxy: {

@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "Nova",
+    "slug": "nova-jaundice",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.nova.jaundice"
+    },
+    "android": {
+      "package": "com.nova.jaundice",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "react-native-fast-tflite",
+      "expo-build-properties",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Nova uses the camera to photograph the newborn for jaundice screening. Photos are analysed on this device and never uploaded.",
+          "photosPermission": "Nova reads a photo you choose so it can be screened for jaundice on this device."
+        }
+      ]
+    ]
+  }
+}

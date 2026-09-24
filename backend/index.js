@@ -221,94 +221,98 @@ app.get('/api/records', (req, res) => {
   res.json(records);
 });
 
-// 2. Add record (with prediction analysis built-in)
+// 2. Screen a photo and add the record. Every result comes from the image model;
+// if the model server is unreachable the request fails rather than guessing.
+const imagesDir = path.join(dataDir, 'images');
+if (!fs.existsSync(imagesDir)) fs.mkdirSync(imagesDir, { recursive: true });
+app.use('/api/images', express.static(imagesDir));
+
+const RISK_LABELS = {
+  High: { status: "High Risk", prediction: "Jaundice likely" },
+  Moderate: { status: "Moderate Risk", prediction: "Borderline" },
+  Normal: { status: "Normal", prediction: "No visible jaundice" }
+};
+
 app.post('/api/records', upload.single('image'), async (req, res) => {
-  const records = readJsonFile(recordsPath, []);
-  const modelState = readJsonFile(modelStatePath, { weights: {} });
-  
-  const { name, ageDays, gender, hospital, doctor, notes, patientId } = req.body;
-  
-  let predictionResult = {
-    riskScore: 20.0,
-    status: "Normal",
-    prediction: "Normal / Low Risk"
-  };
-
-  let usedCnnModel = false;
-
-  // If there is an uploaded image, we query the Flask service running our Keras model!
-  if (req.file) {
-    try {
-      const buffer = fs.readFileSync(req.file.path);
-      const fileBlob = new Blob([buffer], { type: req.file.mimetype });
-      
-      const formDataObj = new FormData();
-      formDataObj.append('image', fileBlob, req.file.originalname);
-      
-      const pyResponse = await fetch('http://localhost:8000/predict', {
-        method: 'POST',
-        body: formDataObj
-      });
-      
-      if (pyResponse.ok) {
-        const pyData = await pyResponse.json();
-        const isJaundice = pyData.prediction === "Jaundice";
-        predictionResult = {
-          riskScore: pyData.confidence,
-          status: isJaundice ? "High Risk" : "Normal",
-          prediction: isJaundice ? "Jaundice Detected" : "Normal / Low Risk"
-        };
-        usedCnnModel = true;
-      } else {
-        console.error("Flask server error response, falling back to rule engine.");
-        predictionResult = predictJaundice(notes, ageDays, modelState.weights || {});
-      }
-    } catch (err) {
-      console.error("Failed to connect to Flask AI server, falling back to rule engine:", err);
-      predictionResult = predictJaundice(notes, ageDays, modelState.weights || {});
-    } finally {
-      // Clean up Multer temporary file
-      try {
-        if (fs.existsSync(req.file.path)) {
-          fs.unlinkSync(req.file.path);
-        }
-      } catch (cleanupErr) {
-        console.error("Temporary file cleanup error:", cleanupErr);
-      }
-    }
-  } else {
-    // Fallback to text notes rule predictor if no image was uploaded
-    predictionResult = predictJaundice(notes, ageDays, modelState.weights || {});
+  const { name, ageDays, gender, hospital, doctor, notes } = req.body;
+  if (!req.file) {
+    return res.status(400).json({ error: "A photo of the baby is required." });
   }
-  
-  // Heatmap generation helper (simulate clinical heatmap area based on risk score)
-  const isHigh = predictionResult.status === "High Risk";
-  const isMod = predictionResult.status === "Moderate Risk";
-  const radius = isHigh ? 60 : (isMod ? 45 : 15);
-  const x = Math.floor(45 + Math.random() * 10);
-  const y = Math.floor(40 + Math.random() * 15);
-  
+  if (!/^image\/(jpeg|png|webp)$/.test(req.file.mimetype)) {
+    fs.rmSync(req.file.path, { force: true });
+    return res.status(400).json({ error: "Upload a JPEG, PNG or WebP photo." });
+  }
+
+  const patientId = /^NEO-\d{4}-\d{4}$/.test(req.body.patientId || '')
+    ? req.body.patientId
+    : `NEO-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+  let pyData;
+  const started = Date.now();
+  try {
+    const buffer = fs.readFileSync(req.file.path);
+    const formDataObj = new FormData();
+    formDataObj.append('image', new Blob([buffer], { type: req.file.mimetype }), 'photo');
+    const pyResponse = await fetch('http://localhost:8000/predict', { method: 'POST', body: formDataObj });
+    if (!pyResponse.ok) throw new Error(`model server responded ${pyResponse.status}`);
+    pyData = await pyResponse.json();
+  } catch (err) {
+    console.error("Screening failed:", err);
+    fs.rmSync(req.file.path, { force: true });
+    return res.status(503).json({ error: "The screening model is not reachable. Check that the AI server is running, then try again." });
+  }
+  const elapsedMs = Date.now() - started;
+
+  // Keep the photo with the record so results and reports show what was screened.
+  const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[req.file.mimetype];
+  const imageName = `${patientId}-${started}.${ext}`;
+  fs.renameSync(req.file.path, path.join(imagesDir, imageName));
+
+  const labels = RISK_LABELS[pyData.risk];
+  const now = new Date();
   const newRecord = {
-    patientId: patientId || `NEO-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-    name: name || "Baby Doe",
-    ageDays: parseInt(ageDays) || 3,
-    gender: gender || "Male",
-    hospital: hospital || "St. Mary's Pediatric Wing",
-    doctor: doctor || "Dr. Elena Smith",
-    date: new Date().toISOString().split('T')[0],
-    prediction: predictionResult.prediction,
-    status: predictionResult.status,
-    confidence: predictionResult.riskScore,
-    processingTime: usedCnnModel ? "0.8s" : "1.2s",
-    modelUsed: usedCnnModel ? "CNN-Keras (neobloom_model)" : (modelState.version || "Neonatal-Net v2.1.0"),
-    notes: notes || "No notes provided.",
-    riskScore: predictionResult.riskScore,
-    heatmapCoords: { x, y, radius }
+    patientId,
+    name: (name || '').trim() || "Unnamed baby",
+    ageDays: parseInt(ageDays) || null,
+    gender: gender || "Not recorded",
+    hospital: hospital || "",
+    doctor: doctor || "",
+    date: now.toISOString().split('T')[0],
+    createdAt: now.toISOString(),
+    risk: pyData.risk,
+    status: labels.status,
+    prediction: labels.prediction,
+    probability: pyData.probability,
+    threshold: pyData.threshold,
+    riskScore: Math.round(pyData.probability * 1000) / 10,
+    confidence: pyData.confidence,
+    processingTime: `${(elapsedMs / 1000).toFixed(1)}s`,
+    modelUsed: pyData.model,
+    notes: (notes || '').trim(),
+    imageUrl: `/api/images/${imageName}`
   };
-  
+
+  const records = readJsonFile(recordsPath, []);
   records.unshift(newRecord);
   writeJsonFile(recordsPath, records);
   res.status(201).json(newRecord);
+});
+
+// Is the image model server reachable?
+app.get('/api/health', async (req, res) => {
+  try {
+    const r = await fetch('http://localhost:8000/', { signal: AbortSignal.timeout(2000) });
+    res.json({ model: r.ok ? 'online' : 'offline' });
+  } catch {
+    res.json({ model: 'offline' });
+  }
+});
+
+// Measured performance of the deployed model (written by ml/train.py).
+app.get('/api/model/metrics', (req, res) => {
+  const metrics = readJsonFile(path.join(__dirname, '../model_metrics.json'), null);
+  if (!metrics) return res.status(404).json({ error: "model_metrics.json not found" });
+  res.json(metrics);
 });
 
 // 3. Predict endpoint (dry run assessment)

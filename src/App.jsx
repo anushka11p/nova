@@ -36,14 +36,14 @@ function App() {
   // Auth state triggers
   const handleAuthSuccess = (user) => {
     setCurrentUser(user);
-    showToast(`Welcome back, ${user.name}! Secure terminal session initialized.`, 'success');
+    showToast(`Signed in as ${user.name}.`, 'success');
     setPage('dashboard');
     setDashboardTab('dashboard');
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
-    showToast('Secure session closed. Terminal logged out.', 'info');
+    showToast('Signed out.', 'info');
     setPage('landing');
   };
 
@@ -53,7 +53,7 @@ function App() {
       // Redirect to login if accessing dashboard without credentials
       setAuthMode('login');
       setPage('auth');
-      showToast('Authentication required to access the clinical portal.', 'warning');
+      showToast('Sign in to open the clinical portal.', 'warning');
       return;
     }
 
@@ -83,15 +83,10 @@ function App() {
 
   const getToastBorder = (type) => {
     switch (type) {
-      case 'success':
-        return 'border-emerald-200 bg-emerald-50 text-emerald-800';
       case 'error':
-        return 'border-rose-200 bg-rose-50 text-rose-800';
-      case 'warning':
-        return 'border-amber-200 bg-amber-50 text-amber-855';
-      case 'info':
+        return 'border-rose-300 bg-white text-slate-900';
       default:
-        return 'border-blue-200 bg-blue-50 text-blue-800';
+        return 'border-slate-300 bg-white text-slate-900';
     }
   };
 
@@ -131,11 +126,11 @@ function App() {
       )}
 
       {/* Global Toast Container */}
-      <div className="fixed bottom-6 right-6 z-50 space-y-3 max-w-sm w-full no-print">
+      <div className="fixed z-50 space-y-3 no-print left-4 right-4 bottom-4 sm:left-auto sm:right-6 sm:bottom-6 sm:max-w-sm sm:w-full pointer-events-none">
         {toasts.map((t) => (
           <div 
             key={t.id}
-            className={`flex items-start gap-3 p-4 rounded-2xl border shadow-lg transition-all duration-300 animate-slide-in font-sans font-medium text-xs ${getToastBorder(t.type)}`}
+            className={`pointer-events-auto flex items-start gap-3 px-4 py-3 rounded-md border shadow-[0_8px_24px_-12px_rgba(20,24,29,0.4)] font-medium text-sm ${getToastBorder(t.type)}`}
           >
             <div className="shrink-0 mt-0.5">{getToastIcon(t.type)}</div>
             <div className="flex-1 leading-relaxed">{t.message}</div>

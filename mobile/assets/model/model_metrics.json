@@ -1,0 +1,65 @@
+{
+  "model": "Nova Jaundice EfficientNetB0 v3.0",
+  "input": {
+    "shape": [
+      1,
+      224,
+      224,
+      3
+    ],
+    "dtype": "float32",
+    "range": "0-255 RGB"
+  },
+  "output": "probability of jaundice",
+  "threshold": 0.27,
+  "val": {
+    "threshold": 0.27,
+    "accuracy": 0.807,
+    "sensitivity": 0.9,
+    "specificity": 0.7738,
+    "precision": 0.587,
+    "auc": 0.9151,
+    "confusion": {
+      "tp": 27,
+      "fn": 3,
+      "fp": 19,
+      "tn": 65
+    },
+    "n": 114
+  },
+  "test": {
+    "threshold": 0.27,
+    "accuracy": 0.8482,
+    "sensitivity": 0.8966,
+    "specificity": 0.8313,
+    "precision": 0.65,
+    "auc": 0.9103,
+    "confusion": {
+      "tp": 26,
+      "fn": 3,
+      "fp": 14,
+      "tn": 69
+    },
+    "n": 112
+  },
+  "test_at_0.5": {
+    "threshold": 0.5,
+    "accuracy": 0.8482,
+    "sensitivity": 0.6207,
+    "specificity": 0.9277,
+    "precision": 0.75,
+    "auc": 0.9103,
+    "confusion": {
+      "tp": 18,
+      "fn": 11,
+      "fp": 6,
+      "tn": 77
+    },
+    "n": 112
+  },
+  "split_sizes": {
+    "train": 529,
+    "val": 114,
+    "test": 112
+  }
+}

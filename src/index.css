@@ -16,6 +16,12 @@
   --color-clinical-800: #034242;
   --color-clinical-900: #053737;
 
+  /* Clinical portal */
+  --color-brand: #0F766E;
+  --color-brand-hover: #115E59;
+  --color-brand-soft: #F0FDFA;
+  --color-brand-ring: #99F6E4;
+
   /* Custom Transitions & Radii */
   --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   --animate-scan: scan 2s linear infinite;
@@ -34,12 +40,36 @@
 }
 
 /* Custom UI Components and styles */
-html {
-  font-family: var(--font-sans);
+@layer base {
+  html {
+    font-family: var(--font-sans);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+  }
+
+  .portal :is(h1, h2, h3, h4, h5, h6) {
+    font-family: inherit;
+  }
 }
 
-h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-display);
+@keyframes result-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.result-in { animation: result-in 280ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes shimmer-slide {
+  from { left: -33%; }
+  to { left: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .result-in { animation: none; }
+}
+
+.portal :focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
 }
 
 /* Print layout for clinical reports */
@@ -53,6 +83,16 @@ h1, h2, h3, h4, h5, h6 {
   }
   .print-only {
     display: block !important;
+  }
+  .portal, #portal-main {
+    height: auto !important;
+    overflow: visible !important;
+    background: white !important;
+  }
+  .report-sheet {
+    box-shadow: none !important;
+    max-width: none !important;
+    padding: 0 !important;
   }
   .print-card {
     border: 1px solid #e2e8f0 !important;
