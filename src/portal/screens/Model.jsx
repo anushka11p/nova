@@ -121,7 +121,7 @@ export function Model({ metrics, health }) {
           <CardHeader title="Known limitations" />
           <ul className="px-5 pb-5 space-y-3">
             {[
-              'Trained on 755 photos from a single source.',
+              `Trained on ${metrics.split_sizes.train} photos (${metrics.split_sizes.train + metrics.split_sizes.val + metrics.split_sizes.test} in the dataset) from a single source.`,
               'Not yet tested across skin tones, cameras or lighting.',
               'Not clinically validated or approved as a medical device.',
               'Reads the whole photo; it does not measure bilirubin.',

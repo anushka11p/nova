@@ -47,3 +47,7 @@ backend/data/uploads/
 .impeccable/hook.cache.json
 .impeccable/questions/
 .claude/
+ml/efficientnetv2/received/
+ml/efficientnetv2/outputs/
+ml/efficientnetv2/train.log
+models_backup/

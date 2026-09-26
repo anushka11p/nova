@@ -27,7 +27,7 @@ A non-invasive photo screen, run in seconds by the staff already doing the newbo
 ## Capabilities and Constraints
 
 - Web app: React 19 + Vite + Tailwind CSS v4 frontend, Express API (port 5001), Flask inference server (port 8000) serving `nova_jaundice.keras`.
-- Model: EfficientNetB0 transfer learning, input 224×224 RGB, output probability of jaundice; decision threshold 0.27 chosen for ≥90% sensitivity on validation data. Moderate band is threshold/2 to threshold.
+- Model: EfficientNetV2B0 transfer learning (trained on Kaggle with notebook1d58632c68.ipynb, installed 2026-09-26), input 224×224 RGB, output probability of jaundice; decision threshold 0.41 chosen for ≥90% sensitivity on validation data. Moderate band is threshold/2 to threshold. The previous EfficientNetB0 model is kept in `models_backup/efficientnetb0_v3/`.
 - The same model ships on-device in the Expo mobile app (`mobile/`), which is separate from this web portal.
 - Authentication is simulated; there is no real account system, database or audit log yet.
 - The earlier simulated Grad-CAM view, fake training console and invented statistics have been removed; the portal shows only real records and the measured model metrics.
@@ -40,8 +40,8 @@ A non-invasive photo screen, run in seconds by the staff already doing the newbo
 
 ## Evidence on Hand
 
-- Measured model performance on a held-out test set of 112 images (`model_metrics.json`): sensitivity 89.7%, specificity 83.1%, accuracy 84.8%, AUC 0.91.
-- Training data: 755 unique newborn photos (200 jaundice, 560 normal before deduplication) from a single source.
+- Measured model performance on the notebook's held-out test set of 114 images (`model_metrics.json`), at the 0.41 cut-off: sensitivity 80.0%, specificity 89.3%, accuracy 86.8%, AUC 0.927. At 0.5: sensitivity 76.7%, specificity 96.4%, accuracy 91.2%.
+- Training data: 760 newborn photos (200 jaundice, 560 normal; includes 5 exact duplicates) from a single source, split 532 / 114 / 114.
 - Sample test images in `test-images/`.
 - Absent and must not be fabricated: clinical validation, regulatory approval, hospital partners, user counts, testimonials, published accuracy claims beyond the measured test metrics.
 
