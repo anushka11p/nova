@@ -22,14 +22,14 @@ IMG_SIZE = 224
 
 
 def preprocess(file):
-    # Centre-crop to square (training photos are square), resize, keep raw 0-255 pixels:
-    # normalisation is built into the model.
+    # Centre-crop to square (training photos are square), then resize with tf.image.resize (bilinear,
+    # no antialiasing) exactly as the model was trained. Raw 0-255 pixels: normalisation is inside the model.
     img = Image.open(file.stream).convert("RGB")
     w, h = img.size
     side = min(w, h)
     img = img.crop(((w - side) // 2, (h - side) // 2, (w + side) // 2, (h + side) // 2))
-    img = img.resize((IMG_SIZE, IMG_SIZE), Image.BILINEAR)
-    return np.expand_dims(np.asarray(img, dtype=np.float32), 0)
+    arr = tf.image.resize(np.asarray(img, dtype=np.float32), (IMG_SIZE, IMG_SIZE))
+    return np.expand_dims(arr.numpy(), 0)
 
 
 @app.route("/")

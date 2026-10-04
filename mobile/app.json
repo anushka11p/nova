@@ -13,7 +13,7 @@
     "android": {
       "package": "com.nova.jaundice",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#E6F6F4",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -32,7 +32,11 @@
           "cameraPermission": "Nova uses the camera to photograph the newborn for jaundice screening. Photos are analysed on this device and never uploaded.",
           "photosPermission": "Nova reads a photo you choose so it can be screened for jaundice on this device."
         }
-      ]
-    ]
+      ],
+      "expo-router",
+      "expo-asset",
+      "expo-font"
+    ],
+    "scheme": "nova"
   }
 }
