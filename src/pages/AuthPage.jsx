@@ -1,3 +1,4 @@
+import { supabase } from '../lib/supabase';
 import React, { useState } from 'react';
 import { Lock, Mail, Hospital, User, Eye, EyeOff, ShieldAlert, ArrowLeft } from 'lucide-react';
 
@@ -10,38 +11,92 @@ export const AuthPage = ({ onAuthSuccess, onBackToLanding, initialMode = "login"
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const [hospitalAffiliation, setHospitalAffiliation] = useState('');
+  const [institutionalEmail, setInstitutionalEmail] = useState('');
+  const [medicalLicenseId, setMedicalLicenseId] = useState('');
 
-  const handleLoginSubmit = (e) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setErrorMsg('');
-    
-    // Simple mock authentication simulation
+  
+const handleLoginSubmit = async (e) => {
+  e.preventDefault();
+  setIsLoading(true);
+  setErrorMsg('');
+  setSuccessMsg('');
+
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password: password
+    });
+
+    if (error) {
+      setErrorMsg(error.message);
+      return;
+    }
+
+    const user = data.user;
+
+    onAuthSuccess({
+      name: user.user_metadata?.name || email.split('@')[0],
+      role: user.user_metadata?.role || 'Clinical User',
+      hospital: user.user_metadata?.hospital || hospitalId,
+      email: user.email
+    });
+  } catch (err) {
+    setErrorMsg('Login failed. Please try again.');
+    console.error('Login error:', err);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+  
+const handleSignupSubmit = async (e) => {
+  e.preventDefault();
+  setIsLoading(true);
+  setErrorMsg('');
+  setSuccessMsg('');
+
+  try {
+    const { error } = await supabase
+      .from('practitioner_access_requests')
+      .insert([
+        {
+          full_name: fullName.trim(),
+          hospital_affiliation: hospitalAffiliation.trim(),
+          institutional_email: institutionalEmail.trim(),
+          medical_license_id: medicalLicenseId.trim(),
+          status: 'pending'
+        }
+      ]);
+
+    if (error) {
+      setErrorMsg('Could not submit your request. Please try again.');
+      console.error('Request submission error:', error);
+      return;
+    }
+
+    setSuccessMsg(
+      'Account request submitted successfully! Your clinical coordinator will review your request.'
+    );
+
+    setFullName('');
+    setHospitalAffiliation('');
+    setInstitutionalEmail('');
+    setMedicalLicenseId('');
+
     setTimeout(() => {
-      setIsLoading(false);
-      onAuthSuccess({
-        name: "Dr. Elena Smith",
-        role: "Senior Pediatrician",
-        hospital: "St. Mary's Pediatric Wing",
-        email: email || "elena.smith@stmarys-peds.org"
-      });
-    }, 1200);
-  };
+      setMode('login');
+      setSuccessMsg('');
+    }, 3000);
 
-  const handleSignupSubmit = (e) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setErrorMsg('');
-
-    setTimeout(() => {
-      setIsLoading(false);
-      setSuccessMsg('Account request submitted successfully! Your clinical coordinator will approve your access shortly.');
-      setTimeout(() => {
-        setMode('login');
-        setSuccessMsg('');
-      }, 3000);
-    }, 1500);
-  };
+  } catch (err) {
+    console.error('Signup error:', err);
+    setErrorMsg('Something went wrong. Please try again.');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const handleForgotSubmit = (e) => {
     e.preventDefault();
@@ -56,6 +111,16 @@ export const AuthPage = ({ onAuthSuccess, onBackToLanding, initialMode = "login"
         setSuccessMsg('');
       }, 3000);
     }, 1000);
+  };
+
+  // Direct Bypass for Testing
+  const handleClinicalBypass = () => {
+    onAuthSuccess({
+      name: "Dr. Elena Smith",
+      role: "Senior Pediatrician",
+      hospital: "St. Mary's Pediatric Wing",
+      email: "elena.smith@stmarys-peds.org"
+    });
   };
 
   return (
@@ -84,7 +149,7 @@ export const AuthPage = ({ onAuthSuccess, onBackToLanding, initialMode = "login"
           {mode === 'forgot' && 'Reset Secure Password'}
         </h2>
         <p className="mt-2 text-center text-xs text-slate-500 max-w-xs mx-auto">
-          Authorized pediatric medical staff and neonatal screeners only.
+          Authorized pediatric medical staff and neonatal screeners only. HIPAA compliant portal.
         </p>
       </div>
 
@@ -205,6 +270,8 @@ export const AuthPage = ({ onAuthSuccess, onBackToLanding, initialMode = "login"
                   <input
                     type="text"
                     required
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
                     className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-clinical-500"
                     placeholder="Dr. John Doe"
                   />
@@ -222,6 +289,8 @@ export const AuthPage = ({ onAuthSuccess, onBackToLanding, initialMode = "login"
                   <input
                     type="text"
                     required
+                    value={hospitalAffiliation}
+                    onChange={(e) => setHospitalAffiliation(e.target.value)}
                     className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-clinical-500"
                     placeholder="St. Jude Neonatal Care"
                   />
@@ -239,6 +308,8 @@ export const AuthPage = ({ onAuthSuccess, onBackToLanding, initialMode = "login"
                   <input
                     type="email"
                     required
+                    value={institutionalEmail}
+                    onChange={(e) => setInstitutionalEmail(e.target.value)}
                     className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-clinical-500"
                     placeholder="john.doe@hospital.org"
                   />
@@ -256,6 +327,8 @@ export const AuthPage = ({ onAuthSuccess, onBackToLanding, initialMode = "login"
                   <input
                     type="text"
                     required
+                    value={medicalLicenseId}
+                    onChange={(e) => setMedicalLicenseId(e.target.value)}
                     className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-clinical-500"
                     placeholder="NPI-109283749"
                   />
@@ -326,6 +399,18 @@ export const AuthPage = ({ onAuthSuccess, onBackToLanding, initialMode = "login"
           </div>
         </div>
 
+        {/* Development Bypass Card */}
+        <div className="mt-4 bg-slate-100 p-4 rounded-2xl border border-slate-200 text-center">
+          <p className="text-xs text-slate-500 mb-2 font-medium">
+            For local evaluation & clinical testing:
+          </p>
+          <button
+            onClick={handleClinicalBypass}
+            className="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold shadow-xs transition-colors"
+          >
+            Direct Sandbox Bypass (Dr. Elena Smith)
+          </button>
+        </div>
       </div>
     </div>
   );

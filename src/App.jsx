@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { supabase } from './lib/supabase';
+import React, { useState, useEffect } from 'react';
 import { LandingPage } from './pages/LandingPage';
 import { AuthPage } from './pages/AuthPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -14,6 +15,33 @@ function App() {
   
   // User Authentication State
   const [currentUser, setCurrentUser] = useState(null);
+  
+useEffect(() => {
+  const restoreSession = async () => {
+    const { data, error } = await supabase.auth.getSession();
+
+    if (error) {
+      console.error('Session restore error:', error.message);
+      return;
+    }
+
+    if (data.session?.user) {
+      const user = data.session.user;
+
+      setCurrentUser({
+        name: user.user_metadata?.name || user.email?.split('@')[0],
+        role: user.user_metadata?.role || 'Clinical User',
+        hospital: user.user_metadata?.hospital || 'HSP-STMARYS-88',
+        email: user.email
+      });
+
+      setPage('dashboard');
+      setDashboardTab('dashboard');
+    }
+  };
+
+  restoreSession();
+}, []);
 
   // Global Toast State
   const [toasts, setToasts] = useState([]);
@@ -41,11 +69,20 @@ function App() {
     setDashboardTab('dashboard');
   };
 
-  const handleLogout = () => {
-    setCurrentUser(null);
-    showToast('Signed out.', 'info');
-    setPage('landing');
-  };
+  
+const handleLogout = async () => {
+  const { error } = await supabase.auth.signOut();
+
+  if (error) {
+    console.error('Logout error:', error.message);
+    showToast('Sign out failed. Please try again.', 'error');
+    return;
+  }
+
+  setCurrentUser(null);
+  showToast('Signed out.', 'info');
+  setPage('landing');
+};
 
   // Navigators
   const navigateToPage = (targetPage, subTarget = '') => {
