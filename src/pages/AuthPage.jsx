@@ -58,16 +58,6 @@ export const AuthPage = ({ onAuthSuccess, onBackToLanding, initialMode = "login"
     }, 1000);
   };
 
-  // Direct Bypass for Testing
-  const handleClinicalBypass = () => {
-    onAuthSuccess({
-      name: "Dr. Elena Smith",
-      role: "Senior Pediatrician",
-      hospital: "St. Mary's Pediatric Wing",
-      email: "elena.smith@stmarys-peds.org"
-    });
-  };
-
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative font-sans">
       
@@ -94,7 +84,7 @@ export const AuthPage = ({ onAuthSuccess, onBackToLanding, initialMode = "login"
           {mode === 'forgot' && 'Reset Secure Password'}
         </h2>
         <p className="mt-2 text-center text-xs text-slate-500 max-w-xs mx-auto">
-          Authorized pediatric medical staff and neonatal screeners only. HIPAA compliant portal.
+          Authorized pediatric medical staff and neonatal screeners only.
         </p>
       </div>
 
@@ -336,18 +326,6 @@ export const AuthPage = ({ onAuthSuccess, onBackToLanding, initialMode = "login"
           </div>
         </div>
 
-        {/* Development Bypass Card */}
-        <div className="mt-4 bg-slate-100 p-4 rounded-2xl border border-slate-200 text-center">
-          <p className="text-xs text-slate-500 mb-2 font-medium">
-            For local evaluation & clinical testing:
-          </p>
-          <button
-            onClick={handleClinicalBypass}
-            className="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold shadow-xs transition-colors"
-          >
-            Direct Sandbox Bypass (Dr. Elena Smith)
-          </button>
-        </div>
       </div>
     </div>
   );
