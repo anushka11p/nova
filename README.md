@@ -2,6 +2,27 @@
 
 **Healthy Beginnings, Powered by AI.**
 
+## Quick start (Windows, macOS, Linux)
+
+You need **Node.js 20+**, **Git** and **Python 3.10 to 3.13** (3.11 recommended; Python 3.14 does not work with TensorFlow yet).
+On Windows, install Python from python.org and tick **"Add python.exe to PATH"**.
+
+```bash
+git clone https://github.com/anushka11p/nova.git
+cd nova
+npm install
+npm run setup:ai     # first time only: creates ml/.venv and installs TensorFlow (about 500 MB)
+npm run dev          # website :5173, API :5001, AI server :8000
+```
+
+Open http://localhost:5173.
+
+**"The screening model is offline"** means the AI server is not running. Look for lines starting with `[AI server]` in the terminal running `npm run dev`; they say what is missing. Running `npm run setup:ai` fixes a missing or incomplete Python environment. The first start takes up to a minute while TensorFlow loads.
+
+To train or evaluate models as well: `npm run setup:ai -- --training`, then see `ml/README.md`. Project status and history: `docs/HANDOFF.md`.
+
+> The description below is from the original prototype. The app now runs a real trained model (see `docs/HANDOFF.md`).
+
 NeoBloom is a modern, responsive frontend application for an AI-powered neonatal jaundice screening platform. It is designed to simulate a professional hospital dashboard where healthcare professionals can register newborn patients, upload images, view screening progress, review AI-generated risk assessments, manage patient records, and generate medical reports.
 
 The current version is a frontend-only prototype built using placeholder data. It does not include backend authentication, database storage, or real AI prediction logic.

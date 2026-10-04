@@ -7,10 +7,11 @@
     "dev": "concurrently \"vite\" \"node backend/index.js\" \"npm run ai\"",
     "server": "node backend/index.js",
     "backend": "node backend/index.js",
-    "ai": "ml/.venv/bin/python backend/app.py",
+    "ai": "node scripts/run-ai.mjs",
     "build": "vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "setup:ai": "node scripts/setup-ai.mjs"
   },
   "dependencies": {
     "cors": "^2.8.5",

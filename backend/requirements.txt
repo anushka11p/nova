@@ -1,0 +1,7 @@
+# Python packages for the AI server (backend/app.py). Python 3.10 to 3.13.
+# Install with: npm run setup:ai
+tensorflow==2.21.0
+numpy>=2.0
+pillow>=11
+flask>=3.0
+flask-cors>=5.0

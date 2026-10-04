@@ -101,11 +101,21 @@ Decisions confirmed with the user on 2026-09-27:
 - **Android NDK:** an interrupted build leaves an empty `~/Library/Android/sdk/ndk/<version>` folder that breaks later builds; delete it and Gradle re-downloads it.
 - **Run the phone app:** boot the emulator, then `cd mobile && npx expo run:android` (later runs only need `npx expo start` while the development build is installed).
 
+## Sign-in and data storage (owned by a teammate, Supabase)
+
+A teammate is adding real authentication with Supabase. Integration points:
+
+- **Web sign-in:** `src/pages/AuthPage.jsx` is simulated today (including a "Direct Sandbox Bypass" button to remove). `src/App.jsx` keeps the signed-in user as `currentUser` and passes it to `DashboardPage`; the portal shows the name and pre-fills "Screened by" from it.
+- **Records:** `backend/index.js` (`POST /api/records`, `GET /api/records`) stores records in `backend/data/records.json` and photos in `backend/data/images/`. Moving these to a Supabase table and Storage only needs the API to keep returning the same record fields (see the record built in `POST /api/records`).
+- **API protection:** the Express API has no auth; it should verify the Supabase session on each request.
+- **Phone app:** no sign-in; history is stored only on the device (`mobile/src/lib/store.tsx`). Connect Supabase there if phone results should sync with the portal or require login.
+
 ## Other open items
 
 - Push the phone redesign (not yet committed).
 - The web landing page (`src/pages/LandingPage.jsx`, before sign-in) still has invented claims from the original project ("Trusted by 500+ neonatologists", "Clinical Grade AI", "without painful blood tests"); it was outside the portal redesign and should be cleaned up.
 - Test on iOS once an iOS Simulator runtime is installed (Xcode → Settings → Components).
 - Web portal: design review and `DESIGN.md`.
+- Real sign-in, access control and an audit log: in progress by a teammate (Supabase), see above.
 - Optional: retrain approach #2 and approach #4 on one shared split for a strict head-to-head comparison.
 - Optional: lower the in-use model's cut-off if catching more jaundice matters more than false alarms (currently 80% caught at 0.41).
